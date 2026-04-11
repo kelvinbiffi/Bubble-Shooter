@@ -178,6 +178,8 @@ body {
   z-index: 20;
   transition: opacity 0.4s;
   padding: 16px;
+  overflow-y: auto;
+  overflow-x: hidden;
 }
 
 #overlay.hidden {
@@ -305,6 +307,208 @@ body {
 .github-link:hover {
   color: var(--accent);
   text-shadow: var(--glow);
+}
+
+/* ==========================================================================
+   WORLD MAP — Level Trail (Candy-Crush style)
+   ========================================================================== */
+
+.map-screen, .results-screen {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 100%;
+  max-width: 100%;
+}
+
+/* World header with nav arrows */
+.map-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: clamp(16px, 3vh, 28px);
+}
+
+.map-world-title {
+  font-family: 'Orbitron', monospace;
+  font-size: clamp(14px, 3.5vw, 20px);
+  font-weight: 900;
+  color: var(--accent);
+  text-shadow: var(--glow);
+  letter-spacing: 2px;
+  text-align: center;
+}
+
+.map-nav {
+  font-size: 18px;
+  width: 36px;
+  height: 36px;
+  border: 1px solid var(--accent);
+  background: transparent;
+  color: var(--accent);
+  cursor: pointer;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s;
+  flex-shrink: 0;
+}
+
+.map-nav:hover {
+  background: var(--accent);
+  color: var(--bg);
+  box-shadow: var(--glow);
+}
+
+.map-nav:active {
+  background: var(--accent);
+  color: var(--bg);
+}
+
+.map-nav-spacer {
+  width: 36px;
+  flex-shrink: 0;
+}
+
+/* Trail layout */
+.map-trail {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0;
+  width: 100%;
+  max-width: 340px;
+}
+
+.map-row {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0;
+  width: 100%;
+}
+
+/* Node wrapper */
+.map-node-wrapper {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+}
+
+/* Level node */
+.map-node {
+  width: clamp(40px, 8vw, 50px);
+  height: clamp(40px, 8vw, 50px);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: 'Orbitron', monospace;
+  font-weight: 900;
+  font-size: clamp(12px, 2.5vw, 16px);
+  border: 2px solid;
+  cursor: pointer;
+  transition: all 0.2s;
+  position: relative;
+  flex-shrink: 0;
+}
+
+.map-node.completed {
+  border-color: var(--accent);
+  color: var(--accent);
+  background: rgba(0, 255, 204, 0.1);
+  text-shadow: var(--glow);
+}
+
+.map-node.unlocked {
+  border-color: var(--accent3);
+  color: var(--accent3);
+  background: rgba(255, 204, 0, 0.08);
+  animation: node-pulse 2s ease-in-out infinite;
+}
+
+.map-node.locked {
+  border-color: rgba(255, 255, 255, 0.15);
+  color: rgba(255, 255, 255, 0.2);
+  background: rgba(255, 255, 255, 0.03);
+  cursor: default;
+}
+
+.map-node.completed:hover,
+.map-node.unlocked:hover {
+  transform: scale(1.15);
+  box-shadow: var(--glow);
+}
+
+.map-node.completed:active,
+.map-node.unlocked:active {
+  transform: scale(0.95);
+}
+
+.map-node-num {
+  font-size: clamp(11px, 2.5vw, 15px);
+}
+
+.map-node-stars {
+  font-size: clamp(8px, 1.5vw, 11px);
+  line-height: 1;
+  letter-spacing: -1px;
+}
+
+@keyframes node-pulse {
+  0%, 100% { box-shadow: 0 0 8px rgba(255, 204, 0, 0.2); }
+  50%      { box-shadow: 0 0 20px rgba(255, 204, 0, 0.5); }
+}
+
+/* Connecting line between nodes */
+.map-line {
+  height: 2px;
+  flex: 1;
+  min-width: 12px;
+  max-width: 40px;
+  background: linear-gradient(90deg, rgba(0,255,204,0.3), rgba(0,255,204,0.1));
+}
+
+/* Vertical connector between rows */
+.map-vline {
+  width: 2px;
+  height: clamp(12px, 2vh, 20px);
+  background: rgba(0, 255, 204, 0.2);
+}
+
+.map-vline.right {
+  align-self: flex-end;
+  margin-right: clamp(18px, 4vw, 25px);
+}
+
+.map-vline.left {
+  align-self: flex-start;
+  margin-left: clamp(18px, 4vw, 25px);
+}
+
+/* Score bar */
+.map-score {
+  margin-top: clamp(12px, 2vh, 24px);
+  font-family: 'Space Mono', monospace;
+  font-size: clamp(8px, 1.5vw, 11px);
+  letter-spacing: 2px;
+  color: rgba(255, 255, 255, 0.35);
+}
+
+/* Results screen */
+.results-world {
+  font-size: clamp(9px, 1.8vw, 12px);
+  letter-spacing: 2px;
+  color: rgba(255, 255, 255, 0.4);
+  margin-bottom: clamp(12px, 2vh, 20px);
+}
+
+.results-stars {
+  font-size: clamp(24px, 5vw, 36px);
+  margin-bottom: clamp(8px, 1.5vh, 16px);
+  letter-spacing: 4px;
 }
 
 /* ==========================================================================

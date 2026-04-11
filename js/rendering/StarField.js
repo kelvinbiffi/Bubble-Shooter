@@ -1,58 +1,44 @@
 /**
  * =============================================================================
- * StarField.js — Animated Background Stars with Parallax
+ * StarField.js — Animated Background with Parallax & Themed Floating Emojis
  * =============================================================================
  *
- * PURPOSE:
- *   Creates the twinkling star background that gives the game its
- *   space/cyberpunk atmosphere. On desktop, the stars react to mouse
- *   movement with a parallax depth effect — closer stars shift more
- *   than distant ones, creating a sense of 3D space.
- *
- * WHY A SEPARATE CANVAS?
- *   The stars are rendered on a full-screen canvas behind the game canvas.
- *   This separation provides:
- *   1. Performance — stars don't need to be redrawn when the game redraws
- *   2. Layering — CSS z-index stacks stars behind the game naturally
- *   3. Independence — stars keep twinkling even when the game is paused
- *
- * PARALLAX EFFECT:
- *   Each star has a `depth` value (0..1). When the mouse moves:
- *     offset = (mousePos - center) * depth * parallaxStrength
- *
- *   - depth=0: star doesn't move (infinitely far away)
- *   - depth=1: star shifts the most (closest to the viewer)
- *
- *   This mimics real-world parallax: nearby objects appear to move more
- *   than distant ones when you shift your viewpoint. The same principle
- *   is used in 2D platformers (parallax scrolling backgrounds) and
- *   modern web design (parallax hero sections).
- *
- *   On mobile (touch devices), parallax uses device tilt via gyroscope
- *   if available, or stays static if not — touch drag is reserved for
- *   gameplay.
- *
- * STAR LAYERS:
- *   Stars are generated in 3 visual layers:
- *   - Far (depth 0.0–0.3):  tiny, dim, slow twinkle — deep space
- *   - Mid (depth 0.3–0.6):  medium size, moderate brightness
- *   - Near (depth 0.6–1.0): larger, brighter, fast twinkle — foreground
+ * Stars twinkle with mouse parallax. Themed emojis float in the background,
+ * changing when the player enters a different world.
  * =============================================================================
  */
 
+let _floatingEmojis = [];
+let _themeTint = null;
+
 /**
- * Initialize the star field with parallax on the given canvas element.
- * Starts its own animation loop — fire and forget.
- * @param {string} canvasId - ID of the canvas element to render stars on
+ * Update the theme — changes floating emojis and background tint.
+ * Called by Game.js when starting a level.
  */
+export function setStarFieldTheme(theme) {
+  if (!theme) return;
+  _themeTint = theme.starTint || null;
+
+  // Create floating emoji objects
+  _floatingEmojis = Array.from({ length: 10 }, () => ({
+    emoji: theme.emojis[Math.floor(Math.random() * theme.emojis.length)],
+    x: Math.random(),         // normalized 0..1
+    y: Math.random(),
+    size: 20 + Math.random() * 30,
+    speed: 0.008 + Math.random() * 0.012,
+    wobblePhase: Math.random() * Math.PI * 2,
+    wobbleAmp: 0.01 + Math.random() * 0.02,
+    alpha: 0.04 + Math.random() * 0.04,
+    depth: 0.1 + Math.random() * 0.3,
+  }));
+}
+
 export function initStars(canvasId = 'stars') {
   const canvas = document.getElementById(canvasId);
   const ctx    = canvas.getContext('2d');
 
-  // Track mouse position for parallax (desktop only)
-  let mouseX = 0.5; // Normalized 0..1 (0.5 = center)
-  let mouseY = 0.5;
-  const PARALLAX_STRENGTH = 30; // Max pixel shift for depth=1 stars
+  let mouseX = 0.5, mouseY = 0.5;
+  const PARALLAX_STRENGTH = 30;
 
   function resize() {
     canvas.width  = window.innerWidth;
@@ -61,7 +47,6 @@ export function initStars(canvasId = 'stars') {
   resize();
   window.addEventListener('resize', resize);
 
-  // Desktop: track mouse for parallax
   const isTouchDevice = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
   if (!isTouchDevice) {
     document.addEventListener('mousemove', (e) => {
@@ -70,21 +55,17 @@ export function initStars(canvasId = 'stars') {
     });
   }
 
-  // Generate stars across 3 depth layers
-  const STAR_COUNT = 200;
-  const stars = Array.from({ length: STAR_COUNT }, () => {
-    const depth = Math.random(); // 0 = far, 1 = near
+  // Generate stars
+  const stars = Array.from({ length: 200 }, () => {
+    const depth = Math.random();
     return {
-      // Base position (normalized 0..1 so they survive resizes)
-      bx:    Math.random(),
-      by:    Math.random(),
-      r:     0.3 + depth * 1.8,                           // Near stars are bigger
-      speed: 0.002 + Math.random() * 0.004 + depth * 0.003, // Near stars twinkle faster
+      bx: Math.random(), by: Math.random(),
+      r: 0.3 + depth * 1.8,
+      speed: 0.002 + Math.random() * 0.004 + depth * 0.003,
       phase: Math.random() * Math.PI * 2,
       depth,
-      // Near stars can have a subtle color tint
       color: depth > 0.7
-        ? `hsl(${180 + Math.random() * 40}, 60%, 90%)`    // Cyan-ish tint for close stars
+        ? `hsl(${180 + Math.random() * 40}, 60%, 90%)`
         : '#fff',
     };
   });
@@ -92,23 +73,25 @@ export function initStars(canvasId = 'stars') {
   function tick() {
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     const t  = Date.now() / 1000;
-    const cx = (mouseX - 0.5) * 2; // -1..1 from center
+    const cx = (mouseX - 0.5) * 2;
     const cy = (mouseY - 0.5) * 2;
 
+    // Optional theme tint overlay
+    if (_themeTint) {
+      ctx.fillStyle = _themeTint;
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+    }
+
+    // Stars
     for (const s of stars) {
-      // Parallax offset: deeper stars shift more
       const px = s.bx * canvas.width  + cx * s.depth * PARALLAX_STRENGTH;
       const py = s.by * canvas.height + cy * s.depth * PARALLAX_STRENGTH;
-
-      // Twinkle: sine wave with per-star phase
-      const brightness = 0.2 + s.depth * 0.3; // Near stars are brighter
+      const brightness = 0.2 + s.depth * 0.3;
       ctx.globalAlpha = brightness + Math.sin(t * s.speed * 10 + s.phase) * brightness * 0.6;
       ctx.fillStyle   = s.color;
       ctx.beginPath();
       ctx.arc(px, py, s.r, 0, Math.PI * 2);
       ctx.fill();
-
-      // Near stars get a soft glow halo
       if (s.depth > 0.75) {
         ctx.globalAlpha *= 0.15;
         ctx.beginPath();
@@ -116,6 +99,22 @@ export function initStars(canvasId = 'stars') {
         ctx.fill();
       }
     }
+
+    // Floating themed emojis
+    for (const e of _floatingEmojis) {
+      e.y -= e.speed * 0.016; // drift upward
+      if (e.y < -0.1) { e.y = 1.1; e.x = Math.random(); }
+      const wobble = Math.sin(t * 0.5 + e.wobblePhase) * e.wobbleAmp;
+      const ex = (e.x + wobble) * canvas.width  + cx * e.depth * PARALLAX_STRENGTH;
+      const ey = e.y * canvas.height + cy * e.depth * PARALLAX_STRENGTH;
+      ctx.globalAlpha = e.alpha;
+      ctx.font = `${e.size}px serif`;
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(e.emoji, ex, ey);
+    }
+
+    ctx.globalAlpha = 1;
     requestAnimationFrame(tick);
   }
 

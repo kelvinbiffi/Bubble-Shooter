@@ -137,12 +137,12 @@ export class Shooter {
       ctx.save();
       ctx.font      = '8px Space Mono';
       ctx.fillStyle = 'rgba(255,255,255,0.3)';
-      ctx.fillText('NEXT', this.pos.x + 50, this.pos.y - 10);
+      ctx.fillText('NEXT', this.pos.x + 42, this.pos.y - 10);
       const nb = this.nextBubble;
       const previewBubble = {
-        pos: new Vec2(this.pos.x + 60, this.pos.y),
+        pos: new Vec2(this.pos.x + 50, this.pos.y),
         color: nb.color, colorIdx: nb.colorIdx,
-        radius: 16, alpha: 0.8, scale: 0.6,
+        radius: BUBBLE_R * 0.7, alpha: 0.8, scale: 0.7,
         popping: false, glowPulse: 0,
       };
       drawBubble(ctx, previewBubble);
