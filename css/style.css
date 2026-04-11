@@ -1,0 +1,321 @@
+/**
+ * =============================================================================
+ * style.css — Game UI Styling
+ * =============================================================================
+ *
+ * PURPOSE:
+ *   All visual styling for the HTML elements surrounding the game canvas.
+ *   The actual game graphics are drawn on <canvas> via JavaScript —
+ *   this CSS only handles the HUD, overlays, buttons, and page layout.
+ *
+ * DESIGN SYSTEM:
+ *   Uses CSS Custom Properties (variables) for consistent theming:
+ *   --bg:      Deep space dark (#050510)
+ *   --panel:   Slightly lighter dark (#0a0a1f)
+ *   --accent:  Neon cyan (#00ffcc) — primary UI color
+ *   --accent2: Neon pink (#ff3399) — secondary/danger color
+ *   --accent3: Gold (#ffcc00) — score/reward color
+ *   --glow/glow2: Box-shadow presets for neon glow effects
+ *
+ * TYPOGRAPHY:
+ *   - Orbitron: Geometric, futuristic display font (headings, scores)
+ *   - Space Mono: Clean monospace font (body text, labels)
+ *   Both loaded from Google Fonts for the sci-fi aesthetic.
+ *
+ * LAYOUT:
+ *   Fully responsive from 320px phones to 4K desktops. The canvas
+ *   scales to fit the viewport while keeping its 420×540 aspect ratio.
+ *   HUD and overlays adapt to screen size with clamp() and media queries.
+ *
+ * NOTABLE TECHNIQUES:
+ *   - backdrop-filter: blur() on the overlay for frosted glass effect
+ *   - CSS transitions on the .btn for the hover fill animation
+ *   - text-shadow with --glow for neon text effects
+ *   - pointer-events: none on .hidden overlay to pass clicks through
+ *   - 100dvh for dynamic viewport height (mobile browser chrome)
+ *   - touch-action: none to prevent browser gestures on the game canvas
+ * =============================================================================
+ */
+
+/* Fonts are loaded via <link> in index.html with preconnect for faster loading */
+
+/* ---- Reset & Variables ---- */
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+:root {
+  --bg:      #050510;
+  --panel:   #0a0a1f;
+  --accent:  #00ffcc;
+  --accent2: #ff3399;
+  --accent3: #ffcc00;
+  --glow:    0 0 20px rgba(0, 255, 204, 0.5);
+  --glow2:   0 0 20px rgba(255, 51, 153, 0.5);
+}
+
+/* ---- Page Layout ---- */
+html, body {
+  height: 100%;
+  height: 100dvh;
+}
+
+body {
+  background: var(--bg);
+  color: #fff;
+  font-family: 'Space Mono', monospace;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  overscroll-behavior: none;
+  -webkit-user-select: none;
+  user-select: none;
+  touch-action: manipulation;
+  padding: 8px;
+}
+
+/* ---- Background Stars Canvas ---- */
+.stars {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+}
+
+/* ---- HUD (Heads-Up Display) ---- */
+.hud {
+  position: relative;
+  z-index: 10;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: clamp(12px, 4vw, 40px);
+  margin-bottom: clamp(4px, 1.5vh, 16px);
+  width: 100%;
+  max-width: 420px;
+  flex-shrink: 0;
+}
+
+.hud-block { text-align: center; }
+
+.hud-label {
+  font-size: clamp(6px, 1.5vw, 9px);
+  letter-spacing: clamp(1px, 0.5vw, 3px);
+  text-transform: uppercase;
+  color: var(--accent);
+  opacity: 0.6;
+}
+
+.hud-value {
+  font-family: 'Orbitron', monospace;
+  font-size: clamp(16px, 4vw, 28px);
+  font-weight: 900;
+  color: var(--accent);
+  text-shadow: var(--glow);
+  line-height: 1;
+  margin-top: 2px;
+}
+
+.hud-value.pink   { color: var(--accent2); text-shadow: var(--glow2); }
+.hud-value.yellow  { color: var(--accent3); text-shadow: 0 0 20px rgba(255, 204, 0, 0.5); }
+
+/* ---- Title Bar ---- */
+.title {
+  font-family: 'Orbitron', monospace;
+  font-size: clamp(7px, 1.2vw, 11px);
+  font-weight: 700;
+  letter-spacing: clamp(3px, 1vw, 8px);
+  text-transform: uppercase;
+  color: var(--accent);
+  opacity: 0.4;
+  margin-bottom: 4px;
+  text-shadow: var(--glow);
+  flex-shrink: 0;
+}
+
+/* ---- Game Canvas Wrapper ---- */
+#gameWrapper {
+  position: relative;
+  z-index: 10;
+  /* Fill available space between HUD and badge, maintain aspect ratio */
+  flex: 1 1 auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 0; /* Allow flex child to shrink below content size */
+  width: 100%;
+  max-width: 420px;
+}
+
+#gameCanvas {
+  display: block;
+  border: 1px solid rgba(0, 255, 204, 0.2);
+  box-shadow:
+    0 0 40px rgba(0, 255, 204, 0.1),
+    inset 0 0 80px rgba(0, 0, 20, 0.5);
+  cursor: crosshair;
+  border-radius: 4px;
+  /* Scale to fill wrapper while maintaining 420:540 aspect ratio */
+  width: 100%;
+  height: 100%;
+  max-width: 420px;
+  max-height: 540px;
+  object-fit: contain;
+  touch-action: none;
+}
+
+/* ---- Overlay (Start Screen / Game Over) ---- */
+#overlay {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  background: rgba(5, 5, 16, 0.92);
+  backdrop-filter: blur(4px);
+  border-radius: 4px;
+  z-index: 20;
+  transition: opacity 0.4s;
+  padding: 16px;
+}
+
+#overlay.hidden {
+  opacity: 0;
+  pointer-events: none;
+}
+
+.overlay-title {
+  font-family: 'Orbitron', monospace;
+  font-size: clamp(22px, 6vw, 36px);
+  font-weight: 900;
+  color: var(--accent);
+  text-shadow: var(--glow), 0 0 60px rgba(0, 255, 204, 0.3);
+  letter-spacing: clamp(2px, 0.8vw, 4px);
+  margin-bottom: 8px;
+}
+
+.overlay-sub {
+  font-size: clamp(8px, 1.8vw, 11px);
+  letter-spacing: clamp(1px, 0.5vw, 3px);
+  color: rgba(255, 255, 255, 0.4);
+  text-transform: uppercase;
+  margin-bottom: clamp(20px, 5vh, 40px);
+}
+
+/* ---- Buttons ---- */
+.btn {
+  font-family: 'Orbitron', monospace;
+  font-size: clamp(10px, 2vw, 13px);
+  font-weight: 700;
+  letter-spacing: clamp(1px, 0.5vw, 3px);
+  text-transform: uppercase;
+  padding: clamp(10px, 2.5vw, 14px) clamp(24px, 6vw, 40px);
+  border: 1px solid var(--accent);
+  background: transparent;
+  color: var(--accent);
+  cursor: pointer;
+  position: relative;
+  overflow: hidden;
+  transition: all 0.2s;
+  margin-top: 8px;
+}
+
+/* Hover fill animation — sweep from left to right */
+.btn::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: var(--accent);
+  transform: scaleX(0);
+  transform-origin: left;
+  transition: transform 0.2s;
+  z-index: -1;
+}
+
+.btn:hover::before { transform: scaleX(1); }
+.btn:hover { color: var(--bg); box-shadow: var(--glow); }
+
+/* Active state for touch (mobile has no hover) */
+.btn:active {
+  color: var(--bg);
+  background: var(--accent);
+  box-shadow: var(--glow);
+}
+
+/* ---- Game Over Score Display ---- */
+.final-score {
+  font-family: 'Orbitron', monospace;
+  font-size: clamp(28px, 8vw, 56px);
+  font-weight: 900;
+  color: var(--accent3);
+  text-shadow: 0 0 40px rgba(255, 204, 0, 0.6);
+  margin-bottom: 4px;
+}
+
+.final-label {
+  font-size: clamp(7px, 1.5vw, 10px);
+  letter-spacing: clamp(1px, 0.5vw, 4px);
+  color: rgba(255, 255, 255, 0.4);
+  margin-bottom: clamp(16px, 3vh, 32px);
+  text-align: center;
+}
+
+/* ---- Instructions ---- */
+.instructions {
+  margin-top: clamp(16px, 3vh, 32px);
+  font-size: clamp(8px, 1.5vw, 10px);
+  letter-spacing: clamp(1px, 0.3vw, 2px);
+  color: rgba(255, 255, 255, 0.25);
+  text-align: center;
+  line-height: 2;
+}
+
+/* ---- Mute Button ---- */
+.mute-btn {
+  font-size: clamp(9px, 1.5vw, 11px);
+  padding: clamp(8px, 1.5vw, 10px) clamp(16px, 3vw, 24px);
+  border-color: rgba(0, 255, 204, 0.3);
+  color: rgba(0, 255, 204, 0.6);
+  margin-top: 12px;
+}
+
+/* ---- Portfolio Badge ---- */
+.portfolio-badge {
+  position: relative;
+  z-index: 100;
+  font-size: clamp(6px, 1vw, 9px);
+  letter-spacing: clamp(1px, 0.3vw, 2px);
+  color: rgba(0, 255, 204, 0.3);
+  text-align: center;
+  line-height: 1.8;
+  flex-shrink: 0;
+  margin-top: clamp(4px, 1vh, 12px);
+}
+
+/* ==========================================================================
+   RESPONSIVE — Landscape & Tiny Screens
+   ========================================================================== */
+
+/* Landscape: hide decorative elements, maximize game area */
+@media (max-height: 500px) {
+  .title { display: none; }
+  .portfolio-badge { display: none; }
+  body { padding: 4px; }
+
+  .hud {
+    margin-bottom: 2px;
+  }
+
+  .hud-label { display: none; }
+
+  .hud-value {
+    font-size: 14px;
+  }
+}
+
+/* Very small portrait screens (SE, mini phones) */
+@media (max-height: 650px) and (orientation: portrait) {
+  .title { display: none; }
+  .portfolio-badge { display: none; }
+}

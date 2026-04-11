@@ -1,0 +1,16 @@
+{
+  "name": "bubble-blaster",
+  "version": "1.0.0",
+  "description": "Neon bubble shooter — Canvas2D game architecture portfolio demo",
+  "author": "Kelvin Biffi",
+  "license": "MIT",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview"
+  },
+  "devDependencies": {
+    "vite": "^6.3.2"
+  }
+}

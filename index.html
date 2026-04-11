@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <title>Bubble Blaster — Portfolio Demo</title>
+
+  <!-- Inline critical styles: splash screen renders BEFORE any JS/CSS loads -->
+  <style>
+    /* Splash screen — shown immediately, hidden when game JS loads */
+    body { margin: 0; background: #050510; }
+
+    #splash {
+      position: fixed;
+      inset: 0;
+      z-index: 9999;
+      background: #050510;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      transition: opacity 0.6s ease-out;
+    }
+
+    #splash.fade-out {
+      opacity: 0;
+      pointer-events: none;
+    }
+
+    .splash-title {
+      font-family: 'Orbitron', sans-serif;
+      font-size: 42px;
+      font-weight: 900;
+      color: #00ffcc;
+      text-shadow: 0 0 30px rgba(0,255,204,0.6), 0 0 80px rgba(0,255,204,0.2);
+      letter-spacing: 6px;
+      margin-bottom: 4px;
+      animation: splash-glow 2s ease-in-out infinite alternate;
+    }
+
+    .splash-title-alt {
+      font-family: 'Orbitron', sans-serif;
+      font-size: 42px;
+      font-weight: 900;
+      color: #ff3399;
+      text-shadow: 0 0 30px rgba(255,51,153,0.6), 0 0 80px rgba(255,51,153,0.2);
+      letter-spacing: 6px;
+      margin-top: -8px;
+      animation: splash-glow-pink 2s ease-in-out infinite alternate;
+    }
+
+    .splash-loader {
+      margin-top: 48px;
+      width: 120px;
+      height: 3px;
+      background: rgba(0,255,204,0.15);
+      border-radius: 3px;
+      overflow: hidden;
+      position: relative;
+    }
+
+    .splash-loader::after {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      height: 100%;
+      width: 40%;
+      background: #00ffcc;
+      border-radius: 3px;
+      box-shadow: 0 0 12px rgba(0,255,204,0.8);
+      animation: splash-bar 1.2s ease-in-out infinite;
+    }
+
+    .splash-text {
+      margin-top: 20px;
+      font-family: 'Space Mono', monospace, sans-serif;
+      font-size: 10px;
+      letter-spacing: 4px;
+      text-transform: uppercase;
+      color: rgba(255,255,255,0.25);
+    }
+
+    @keyframes splash-glow {
+      from { text-shadow: 0 0 20px rgba(0,255,204,0.4), 0 0 60px rgba(0,255,204,0.1); }
+      to   { text-shadow: 0 0 40px rgba(0,255,204,0.8), 0 0 100px rgba(0,255,204,0.3); }
+    }
+
+    @keyframes splash-glow-pink {
+      from { text-shadow: 0 0 20px rgba(255,51,153,0.4), 0 0 60px rgba(255,51,153,0.1); }
+      to   { text-shadow: 0 0 40px rgba(255,51,153,0.8), 0 0 100px rgba(255,51,153,0.3); }
+    }
+
+    @keyframes splash-bar {
+      0%   { left: -40%; }
+      100% { left: 100%; }
+    }
+
+    @media (max-width: 480px) {
+      .splash-title, .splash-title-alt { font-size: 28px; letter-spacing: 3px; }
+      .splash-text { font-size: 8px; }
+    }
+  </style>
+
+  <!-- Preload fonts so splash text renders correctly -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Space+Mono:wght@400;700&display=swap">
+</head>
+<body>
+
+  <!-- Splash screen: visible instantly, fades out when game is ready -->
+  <div id="splash">
+    <div class="splash-title">BUBBLE</div>
+    <div class="splash-title-alt">BLASTER</div>
+    <div class="splash-loader"></div>
+    <div class="splash-text">Loading</div>
+  </div>
+
+  <!-- Background: twinkling stars (separate canvas for performance) -->
+  <canvas class="stars" id="stars"></canvas>
+
+  <!-- Title bar -->
+  <div class="title">Bubble Blaster — Canvas2D Architecture Demo</div>
+
+  <!-- HUD: score, level, shots, combos -->
+  <div class="hud">
+    <div class="hud-block">
+      <div class="hud-label">Score</div>
+      <div class="hud-value" id="scoreDisplay">0</div>
+    </div>
+    <div class="hud-block">
+      <div class="hud-label">Level</div>
+      <div class="hud-value pink" id="levelDisplay">1</div>
+    </div>
+    <div class="hud-block">
+      <div class="hud-label">Shots</div>
+      <div class="hud-value yellow" id="shotsDisplay">20</div>
+    </div>
+    <div class="hud-block">
+      <div class="hud-label">Combos</div>
+      <div class="hud-value" id="comboDisplay">0</div>
+    </div>
+  </div>
+
+  <!-- Game area -->
+  <div id="gameWrapper">
+    <canvas id="gameCanvas" width="420" height="540"></canvas>
+
+    <!-- Start screen / Game over overlay -->
+    <div id="overlay">
+      <div class="overlay-title">BUBBLE</div>
+      <div class="overlay-title" style="color:var(--accent2);margin-top:-12px">BLASTER</div>
+      <div class="overlay-sub">Portfolio Demo · Canvas2D Architecture</div>
+      <button class="btn" id="startBtn">Launch Game</button>
+      <div class="instructions">
+        AIM with mouse or finger · TAP to shoot<br>
+        Match 3+ bubbles to pop them<br>
+        Clear the board to level up
+      </div>
+    </div>
+  </div>
+
+  <!-- Portfolio attribution badge -->
+  <div class="portfolio-badge">
+    GAME DEVELOPMENT PORTFOLIO<br>
+    Canvas2D · ES Modules · Game Architecture<br>
+    by Kelvin Biffi
+  </div>
+
+  <!-- Entry point — Vite resolves all imports from here -->
+  <script type="module" src="./js/main.js"></script>
+</body>
+</html>
