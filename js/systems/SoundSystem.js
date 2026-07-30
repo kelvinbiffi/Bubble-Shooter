@@ -1,284 +1,196 @@
 /**
  * =============================================================================
- * SoundSystem.js — Procedural Audio Effects via Web Audio API
+ * SoundSystem.js — File-based Audio (music + SFX) via Web Audio API
  * =============================================================================
  *
- * PURPOSE:
- *   Generates all game sound effects in real-time using oscillators and
- *   noise buffers — no external audio files needed. This keeps the game
- *   at zero external dependencies and under 20 KB total.
+ * Plays the studio-produced tracks and SFX (see STUDIO/AUDIO-MAP.md).
+ * Two buses (music / sfx) hang off the AudioContext so we can duck the
+ * music under important jingles and mute everything at once.
  *
- * WHY PROCEDURAL AUDIO?
- *   - Zero network requests (no .mp3/.wav files to load)
- *   - Tiny file size (code is smaller than a single sound file)
- *   - Infinitely tweakable (change frequency = change sound)
- *   - Demonstrates Web Audio API knowledge (valued in game dev)
- *
- * HOW WEB AUDIO API WORKS:
- *   The Web Audio API uses a node graph (like a modular synthesizer):
- *
- *     Oscillator → GainNode → Destination (speakers)
- *        ↑             ↑
- *     frequency     volume
- *
- *   OscillatorNode: generates a waveform (sine, square, triangle, sawtooth)
- *   GainNode:       controls volume (0 = silent, 1 = full)
- *   BiquadFilter:   shapes frequency content (bandpass, lowpass, etc.)
- *
- *   Key methods:
- *     setValueAtTime(value, time)        — set value at exact time
- *     linearRampToValueAtTime(v, t)      — smooth linear transition
- *     exponentialRampToValueAtTime(v, t) — smooth exponential transition
- *                                          (cannot ramp to 0, use 0.001)
- *
- * AUDIO CONTEXT REQUIREMENT:
- *   Browsers require a user gesture (click/tap) before creating or resuming
- *   an AudioContext. The SoundSystem.init() method handles this — it should
- *   be called from a click event handler (e.g., the "Launch Game" button).
- *
- * SOUND DESIGN NOTES:
- *   - Shoot:  Square wave pitch sweep 1200→150 Hz (classic 8-bit laser)
- *   - Pop:    Sine bend 600→200 Hz + filtered noise burst (bubbly snap)
- *   - Combo:  Ascending C-E-G major triad blips (signals "bonus!")
- *   - Drop:   Dual sine+triangle sweep 800→80 Hz (weighty whoosh)
- *   - Clear:  C5-E5-G5-C6 arpeggio + sustained major chord (victory!)
- *   - Over:   Descending G4-Eb4-C4 minor with pitch bend (melancholy)
+ * Public API kept from the old synth version:
+ *   init(), toggleMute(), playShoot(), playPop(n), playCombo(), playDrop(),
+ *   playLevelClear(), playGameOver()
+ * New: playMusic(worldIdx), stopMusic()
  * =============================================================================
  */
 
+const SFX = {
+  shoot:    { url: 'assets/audio/sfx/shoot.mp3',    vol: 0.55 },
+  pop:      { url: 'assets/audio/sfx/pop.mp3',      vol: 0.70 },
+  combo:    { url: 'assets/audio/sfx/combo.mp3',    vol: 0.65 },
+  drop:     { url: 'assets/audio/sfx/drop.mp3',     vol: 0.60 },
+  clear:    { url: 'assets/audio/sfx/clear.mp3',    vol: 0.80 },
+  gameover: { url: 'assets/audio/sfx/gameover.mp3', vol: 0.75 },
+};
+
+const MUSIC = [
+  { url: 'assets/audio/music/world0.mp3', vol: 0.35 },
+  { url: 'assets/audio/music/world1.mp3', vol: 0.35 },
+  { url: 'assets/audio/music/world2.mp3', vol: 0.30 },
+];
+
+const MAX_VOICES = 8;
+
 export class SoundSystem {
   constructor() {
-    this.ctx    = null;  // AudioContext (created on first user gesture)
-    this.muted  = false;
+    this.ctx      = null;
+    this.muted    = localStorage.getItem('bb-muted') === '1';
+    this.buffers  = new Map();   // url -> AudioBuffer (ou Promise em voo)
+    this.musicBus = null;
+    this.sfxBus   = null;
+    this.musicSrc  = null;
+    this.musicGain = null;
+    this.musicWorld = -1;
+    this.voices   = 0;
+    this.comboSrc = null;
   }
 
-  /**
-   * Initialize the AudioContext. MUST be called from a user gesture (click/tap).
-   * Browsers block audio until a gesture occurs — this is not a bug, it's policy.
-   */
+  /** MUST be called from a user gesture. */
   init() {
     if (this.ctx) return;
     this.ctx = new (window.AudioContext || window.webkitAudioContext)();
+    this.musicBus = this.ctx.createGain();
+    this.sfxBus   = this.ctx.createGain();
+    this.musicBus.connect(this.ctx.destination);
+    this.sfxBus.connect(this.ctx.destination);
+    this._applyMute();
+    // SFX são pequenos: pré-carrega tudo
+    for (const { url } of Object.values(SFX)) this._load(url);
   }
 
-  /** Resume context if suspended (happens after tab switching on some browsers) */
   _ensureRunning() {
-    if (!this.ctx || this.muted) return false;
+    if (!this.ctx) return false;
     if (this.ctx.state === 'suspended') this.ctx.resume();
     return true;
   }
 
-  /** Toggle mute on/off */
+  _applyMute() {
+    if (!this.ctx) return;
+    const v = this.muted ? 0 : 1;
+    this.musicBus.gain.setValueAtTime(v, this.ctx.currentTime);
+    this.sfxBus.gain.setValueAtTime(v, this.ctx.currentTime);
+  }
+
   toggleMute() {
     this.muted = !this.muted;
+    localStorage.setItem('bb-muted', this.muted ? '1' : '0');
+    this._applyMute();
     return this.muted;
   }
 
-  // ===========================================================================
-  // SOUND EFFECTS
-  // ===========================================================================
+  async _load(url) {
+    if (this.buffers.has(url)) return this.buffers.get(url);
+    const promise = fetch(url)
+      .then(r => r.arrayBuffer())
+      .then(ab => this.ctx.decodeAudioData(ab))
+      .then(buf => { this.buffers.set(url, buf); return buf; })
+      .catch(() => { this.buffers.delete(url); return null; });
+    this.buffers.set(url, promise);
+    return promise;
+  }
 
-  /**
-   * Shoot — short "pew" laser sound.
-   * Square wave with fast 1200→150 Hz exponential sweep over 150ms.
-   * Square wave gives it that classic 8-bit bite.
-   */
+  _playSfx(name, { rate = 1, delay = 0, vol = null } = {}) {
+    if (!this._ensureRunning() || this.muted) return null;
+    const def = SFX[name];
+    const buf = this.buffers.get(def.url);
+    if (!buf || buf instanceof Promise) { this._load(def.url); return null; }
+    if (this.voices >= MAX_VOICES) return null;
+    const src  = this.ctx.createBufferSource();
+    const gain = this.ctx.createGain();
+    src.buffer = buf;
+    src.playbackRate.value = rate;
+    gain.gain.value = vol ?? def.vol;
+    src.connect(gain);
+    gain.connect(this.sfxBus);
+    this.voices++;
+    src.onended = () => { this.voices--; };
+    src.start(this.ctx.currentTime + delay);
+    return src;
+  }
+
+  // ---- Música ----
+
+  async playMusic(worldIdx) {
+    if (!this._ensureRunning()) return;
+    if (this.musicWorld === worldIdx && this.musicSrc) return; // mesma trilha, segue tocando
+    this.stopMusic(0.5);
+    this.musicWorld = worldIdx;
+    const def = MUSIC[worldIdx];
+    if (!def) return;
+    const buf = await this._load(def.url);
+    if (!buf || this.musicWorld !== worldIdx) return; // trocou de mundo no meio do load
+    const src  = this.ctx.createBufferSource();
+    const gain = this.ctx.createGain();
+    src.buffer = buf;
+    src.loop = true;
+    // respiro do Suno no fecho: crossfade simples encurtando o loop em 1s
+    src.loopEnd = Math.max(0, buf.duration - 1);
+    src.connect(gain);
+    gain.connect(this.musicBus);
+    const t = this.ctx.currentTime;
+    gain.gain.setValueAtTime(0, t);
+    gain.gain.linearRampToValueAtTime(def.vol, t + 0.5);
+    src.start(t);
+    this.musicSrc  = src;
+    this.musicGain = gain;
+  }
+
+  stopMusic(fade = 0.3) {
+    if (!this.musicSrc) return;
+    const src = this.musicSrc, gain = this.musicGain;
+    const t = this.ctx.currentTime;
+    gain.gain.cancelScheduledValues(t);
+    gain.gain.setValueAtTime(gain.gain.value, t);
+    gain.gain.linearRampToValueAtTime(0, t + fade);
+    src.stop(t + fade + 0.05);
+    this.musicSrc = null;
+    this.musicGain = null;
+    this.musicWorld = -1;
+  }
+
+  /** Abaixa a música pra 40% durante um jingle e volta em fade. */
+  _duck(duration) {
+    if (!this.musicGain) return;
+    const def = MUSIC[this.musicWorld];
+    const base = def ? def.vol : 0.35;
+    const t = this.ctx.currentTime;
+    this.musicGain.gain.cancelScheduledValues(t);
+    this.musicGain.gain.setValueAtTime(this.musicGain.gain.value, t);
+    this.musicGain.gain.linearRampToValueAtTime(base * 0.4, t + 0.1);
+    this.musicGain.gain.setValueAtTime(base * 0.4, t + duration);
+    this.musicGain.gain.linearRampToValueAtTime(base, t + duration + 0.5);
+  }
+
+  // ---- SFX (API antiga) ----
+
   playShoot() {
-    if (!this._ensureRunning()) return;
-    const ctx  = this.ctx;
-    const t    = ctx.currentTime;
-    const osc  = ctx.createOscillator();
-    const gain = ctx.createGain();
-
-    osc.type = 'square';
-    osc.frequency.setValueAtTime(1200, t);
-    osc.frequency.exponentialRampToValueAtTime(150, t + 0.15);
-
-    gain.gain.setValueAtTime(0.3, t);
-    gain.gain.exponentialRampToValueAtTime(0.001, t + 0.15);
-
-    osc.connect(gain);
-    gain.connect(ctx.destination);
-    osc.start(t);
-    osc.stop(t + 0.15);
+    this._playSfx('shoot', { rate: 0.95 + Math.random() * 0.1 });
   }
 
-  /**
-   * Pop — bubbly pop sound.
-   * Two layers: sine oscillator bending 600→200 Hz for the tonal "bloop",
-   * plus a 60ms burst of bandpass-filtered white noise for the snappy "crack".
-   */
-  playPop() {
-    if (!this._ensureRunning()) return;
-    const ctx = this.ctx;
-    const t   = ctx.currentTime;
-
-    // Layer 1: Tonal "bloop" (sine that bends down fast)
-    const osc     = ctx.createOscillator();
-    const oscGain = ctx.createGain();
-    osc.type = 'sine';
-    osc.frequency.setValueAtTime(600, t);
-    osc.frequency.exponentialRampToValueAtTime(200, t + 0.12);
-    oscGain.gain.setValueAtTime(0.3, t);
-    oscGain.gain.exponentialRampToValueAtTime(0.001, t + 0.12);
-    osc.connect(oscGain);
-    oscGain.connect(ctx.destination);
-    osc.start(t);
-    osc.stop(t + 0.12);
-
-    // Layer 2: Noise burst for the "snap" texture
-    const bufferSize  = ctx.sampleRate * 0.06; // 60ms of noise
-    const noiseBuffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
-    const data        = noiseBuffer.getChannelData(0);
-    for (let i = 0; i < bufferSize; i++) data[i] = Math.random() * 2 - 1;
-
-    const noiseSrc  = ctx.createBufferSource();
-    noiseSrc.buffer = noiseBuffer;
-    const noiseGain = ctx.createGain();
-    noiseGain.gain.setValueAtTime(0.15, t);
-    noiseGain.gain.exponentialRampToValueAtTime(0.001, t + 0.06);
-    const bandpass       = ctx.createBiquadFilter();
-    bandpass.type        = 'bandpass';
-    bandpass.frequency.value = 1000;
-    bandpass.Q.value     = 1.5;
-
-    noiseSrc.connect(bandpass);
-    bandpass.connect(noiseGain);
-    noiseGain.connect(ctx.destination);
-    noiseSrc.start(t);
-    noiseSrc.stop(t + 0.06);
+  /** Escadinha satisfatória: 1 pop por bolha com pitch subindo (máx 8). */
+  playPop(count = 1) {
+    const n = Math.min(count, MAX_VOICES);
+    for (let i = 0; i < n; i++) {
+      this._playSfx('pop', { rate: 1 + i * 0.03, delay: i * 0.04 });
+    }
   }
 
-  /**
-   * Combo — ascending major triad blips (C5, E5, G5).
-   * Three quick square-wave notes spaced 80ms apart.
-   * Rising major pattern universally signals "bonus!"
-   */
   playCombo() {
-    if (!this._ensureRunning()) return;
-    const ctx   = this.ctx;
-    const notes = [523.25, 659.25, 783.99]; // C5, E5, G5
-    notes.forEach((freq, i) => {
-      const osc  = ctx.createOscillator();
-      const gain = ctx.createGain();
-      osc.type   = 'square';
-      const t    = ctx.currentTime + i * 0.08;
-      osc.frequency.setValueAtTime(freq, t);
-      gain.gain.setValueAtTime(0.25, t);
-      gain.gain.exponentialRampToValueAtTime(0.001, t + 0.07);
-      osc.connect(gain);
-      gain.connect(ctx.destination);
-      osc.start(t);
-      osc.stop(t + 0.07);
-    });
+    if (this.comboSrc) { try { this.comboSrc.stop(); } catch (e) {} }
+    this.comboSrc = this._playSfx('combo');
   }
 
-  /**
-   * Drop — falling whoosh sound.
-   * Dual-oscillator sweep: sine (800→80 Hz) + triangle sub (400→40 Hz).
-   * Two layers give it weight and a whooshy feel.
-   */
   playDrop() {
-    if (!this._ensureRunning()) return;
-    const ctx = this.ctx;
-    const t   = ctx.currentTime;
-
-    // Main sweep
-    const osc  = ctx.createOscillator();
-    const gain = ctx.createGain();
-    osc.type   = 'sine';
-    osc.frequency.setValueAtTime(800, t);
-    osc.frequency.exponentialRampToValueAtTime(80, t + 0.35);
-    gain.gain.setValueAtTime(0.3, t);
-    gain.gain.linearRampToValueAtTime(0.0, t + 0.35);
-    osc.connect(gain);
-    gain.connect(ctx.destination);
-    osc.start(t);
-    osc.stop(t + 0.35);
-
-    // Sub layer — one octave lower for weight
-    const sub     = ctx.createOscillator();
-    const subGain = ctx.createGain();
-    sub.type      = 'triangle';
-    sub.frequency.setValueAtTime(400, t);
-    sub.frequency.exponentialRampToValueAtTime(40, t + 0.35);
-    subGain.gain.setValueAtTime(0.2, t);
-    subGain.gain.linearRampToValueAtTime(0.0, t + 0.35);
-    sub.connect(subGain);
-    subGain.connect(ctx.destination);
-    sub.start(t);
-    sub.stop(t + 0.35);
+    this._playSfx('drop');
   }
 
-  /**
-   * Level Clear — victory jingle (~1 second).
-   * Ascending arpeggio C5-E5-G5-C6 followed by a sustained C major chord.
-   */
   playLevelClear() {
-    if (!this._ensureRunning()) return;
-    const ctx   = this.ctx;
-    const notes = [523.25, 659.25, 783.99, 1046.50]; // C5, E5, G5, C6
-
-    // Arpeggio
-    notes.forEach((freq, i) => {
-      const osc  = ctx.createOscillator();
-      const gain = ctx.createGain();
-      osc.type   = 'square';
-      const t    = ctx.currentTime + i * 0.15;
-      osc.frequency.setValueAtTime(freq, t);
-      gain.gain.setValueAtTime(0.0, t);
-      gain.gain.linearRampToValueAtTime(0.25, t + 0.01);
-      gain.gain.setValueAtTime(0.25, t + 0.14);
-      gain.gain.linearRampToValueAtTime(0.0, t + 0.18);
-      osc.connect(gain);
-      gain.connect(ctx.destination);
-      osc.start(t);
-      osc.stop(t + 0.18);
-    });
-
-    // Final sustained major chord (C6 + E6 + G6) for the "ta-da"
-    const chordT = ctx.currentTime + notes.length * 0.15;
-    [1046.50, 1318.51, 1567.98].forEach((freq) => {
-      const osc  = ctx.createOscillator();
-      const gain = ctx.createGain();
-      osc.type   = 'square';
-      osc.frequency.setValueAtTime(freq, chordT);
-      gain.gain.setValueAtTime(0.0, chordT);
-      gain.gain.linearRampToValueAtTime(0.15, chordT + 0.01);
-      gain.gain.setValueAtTime(0.15, chordT + 0.3);
-      gain.gain.linearRampToValueAtTime(0.0, chordT + 0.45);
-      osc.connect(gain);
-      gain.connect(ctx.destination);
-      osc.start(chordT);
-      osc.stop(chordT + 0.45);
-    });
+    this._duck(1.6);
+    this._playSfx('clear');
   }
 
-  /**
-   * Game Over — descending minor tones with pitch bend.
-   * Three triangle-wave notes: G4, Eb4, C4 (C minor descent).
-   * Soft waveform + minor key = melancholy.
-   */
   playGameOver() {
-    if (!this._ensureRunning()) return;
-    const ctx   = this.ctx;
-    const notes = [392.00, 311.13, 261.63]; // G4, Eb4, C4
-
-    notes.forEach((freq, i) => {
-      const osc  = ctx.createOscillator();
-      const gain = ctx.createGain();
-      osc.type   = 'triangle';
-      const t    = ctx.currentTime + i * 0.22;
-      osc.frequency.setValueAtTime(freq, t);
-      osc.frequency.linearRampToValueAtTime(freq * 0.95, t + 0.25); // Sad pitch bend
-      gain.gain.setValueAtTime(0.0, t);
-      gain.gain.linearRampToValueAtTime(0.3, t + 0.01);
-      gain.gain.setValueAtTime(0.3, t + 0.15);
-      gain.gain.linearRampToValueAtTime(0.0, t + 0.25);
-      osc.connect(gain);
-      gain.connect(ctx.destination);
-      osc.start(t);
-      osc.stop(t + 0.25);
-    });
+    this.stopMusic(0.3);
+    this._playSfx('gameover', { delay: 0.3 });
   }
 }

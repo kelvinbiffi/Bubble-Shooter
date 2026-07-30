@@ -241,13 +241,54 @@ export class BubbleGrid {
   }
 
   /**
-   * Place a bubble into the grid at the specified cell.
+   * Find the nearest FREE cell to (row, col), measured from the impact point.
+   * Never overwrites an occupied cell (QA-01-03): BFS outward through
+   * occupied neighbors until a free cell appears, pick the closest to `pos`.
+   */
+  _nearestFreeCell(row, col, pos) {
+    const maxC = (r) => (r % 2 === 0 ? COLS : COLS - 1);
+    if (row < 0) row = 0;
+    col = Math.max(0, Math.min(col, maxC(row) - 1));
+    const isOccupied = (r, c) => !!this.grid[r]?.[c]?.alive;
+    if (!isOccupied(row, col)) return { row, col };
+
+    const visited = new Set([`${row},${col}`]);
+    let frontier = [{ row, col }];
+    while (frontier.length) {
+      const next = [];
+      const free = [];
+      for (const cell of frontier) {
+        const dirs = cell.row % 2 === 0
+          ? [[-1, -1], [-1, 0], [0, -1], [0, 1], [1, -1], [1, 0]]
+          : [[-1, 0], [-1, 1], [0, -1], [0, 1], [1, 0], [1, 1]];
+        for (const [dr, dc] of dirs) {
+          const r = cell.row + dr;
+          const c = cell.col + dc;
+          if (r < 0 || r > this.grid.length || c < 0 || c >= maxC(r)) continue;
+          const key = `${r},${c}`;
+          if (visited.has(key)) continue;
+          visited.add(key);
+          if (isOccupied(r, c)) next.push({ row: r, col: c });
+          else free.push({ row: r, col: c });
+        }
+      }
+      if (free.length) {
+        free.sort((a, b) =>
+          this.gridToWorld(a.row, a.col).distanceTo(pos) -
+          this.gridToWorld(b.row, b.col).distanceTo(pos));
+        return free[0];
+      }
+      frontier = next;
+    }
+    return { row: this.grid.length, col: 0 };
+  }
+
+  /**
+   * Place a bubble into the grid at the nearest free cell.
    * Clamps to valid grid bounds.
    */
   placeBubble(bubble, row, col) {
-    if (row < 0) row = 0;
-    const maxCols = row % 2 === 0 ? COLS : COLS - 1;
-    col = Math.max(0, Math.min(col, maxCols - 1));
+    ({ row, col } = this._nearestFreeCell(row, col, bubble.pos));
     if (!this.grid[row]) this.grid[row] = [];
 
     const b    = this.pool.get();
@@ -255,6 +296,7 @@ export class BubbleGrid {
     b.color    = bubble.color;
     b.pos      = this.gridToWorld(row, col);
     b.alive    = true;
+    b.scale    = 1.28; // squash de encaixe, volta pra 1 no update
     this.grid[row][col] = b;
 
     return { row, col };
@@ -280,6 +322,12 @@ export class BubbleGrid {
       for (const b of (row || [])) {
         if (!b?.alive) continue;
         b.glowPulse += dt * 2; // Advance glow sine wave
+
+        // Squash de encaixe: escala volta suave pra 1
+        if (!b.popping && b.scale !== 1) {
+          b.scale += (1 - b.scale) * Math.min(1, dt * 12);
+          if (Math.abs(b.scale - 1) < 0.01) b.scale = 1;
+        }
 
         // Pop animation: scale up + fade out
         if (b.popping) {

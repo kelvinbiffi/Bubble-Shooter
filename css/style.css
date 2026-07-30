@@ -133,6 +133,12 @@ body {
   flex-shrink: 0;
 }
 
+/* Mobile: título curto numa linha só */
+@media (max-width: 480px) {
+  .title { letter-spacing: 2px; white-space: nowrap; }
+  .title-sub { display: none; }
+}
+
 /* ---- Game Canvas Wrapper ---- */
 #gameWrapper {
   position: relative;

@@ -1,0 +1,41 @@
+[
+  {
+    "name": "Dinosaur Valley",
+    "levels": [
+      { "rows": 3, "colors": 2, "shots": 30 },
+      { "rows": 3, "colors": 3, "shots": 32 },
+      { "rows": 4, "colors": 3, "shots": 32 },
+      { "rows": 4, "colors": 3, "shots": 30 },
+      { "rows": 5, "colors": 3, "shots": 32 },
+      { "rows": 5, "colors": 3, "shots": 30 },
+      { "rows": 4, "colors": 4, "shots": 42 },
+      { "rows": 5, "colors": 4, "shots": 44 }
+    ]
+  },
+  {
+    "name": "Kaiju Island",
+    "levels": [
+      { "rows": 5, "colors": 3, "shots": 32 },
+      { "rows": 5, "colors": 3, "shots": 30 },
+      { "rows": 5, "colors": 4, "shots": 44 },
+      { "rows": 5, "colors": 4, "shots": 42 },
+      { "rows": 6, "colors": 4, "shots": 46 },
+      { "rows": 6, "colors": 4, "shots": 44 },
+      { "rows": 6, "colors": 4, "shots": 42 },
+      { "rows": 6, "colors": 5, "shots": 50 }
+    ]
+  },
+  {
+    "name": "Deep Ocean",
+    "levels": [
+      { "rows": 6, "colors": 4, "shots": 46 },
+      { "rows": 6, "colors": 4, "shots": 44 },
+      { "rows": 7, "colors": 4, "shots": 46 },
+      { "rows": 7, "colors": 4, "shots": 44 },
+      { "rows": 6, "colors": 5, "shots": 52 },
+      { "rows": 7, "colors": 5, "shots": 54 },
+      { "rows": 7, "colors": 5, "shots": 52 },
+      { "rows": 8, "colors": 5, "shots": 54 }
+    ]
+  }
+]

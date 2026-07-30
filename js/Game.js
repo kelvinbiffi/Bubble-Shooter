@@ -12,7 +12,7 @@
  */
 
 import { Vec2 } from './core/Vec2.js';
-import { CANVAS_W, CANVAS_H, BUBBLE_R, COLORS } from './constants.js';
+import { CANVAS_W, CANVAS_H, BUBBLE_R, COLORS, SHOOT_SPEED } from './constants.js';
 import { WORLDS } from './themes.js';
 import { BubbleGrid } from './systems/BubbleGrid.js';
 import { ParticleSystem } from './systems/ParticleSystem.js';
@@ -21,7 +21,7 @@ import { ProgressManager } from './systems/ProgressManager.js';
 import { FloatText } from './systems/FloatText.js';
 import { Shooter } from './entities/Shooter.js';
 import { Projectile } from './entities/Projectile.js';
-import { setThemeEmojis, setHintColorIdx, updateHintTime } from './rendering/BubbleRenderer.js';
+import { setThemeEmojis, setThemeSprites, setHintColorIdx, updateHintTime } from './rendering/BubbleRenderer.js';
 import { setStarFieldTheme } from './rendering/StarField.js';
 
 export class Game {
@@ -52,11 +52,16 @@ export class Game {
     this.sound      = new SoundSystem();
     this.floatTexts = [];
     this.bgEmojis   = []; // Floating themed emojis on game canvas
+    this.spriteCache = new Map(); // worldIdx -> HTMLImageElement[]
 
     // ---- Loop Timing ----
     this.lastTime  = 0;
     this.gameTime  = 0;
     this.raf       = null;
+
+    // ---- Juice ----
+    this.shake  = 0;   // intensidade do screenshake (px)
+    this.slowmo = 0;   // segundos restantes de slow-mo
 
     this._bindEvents();
   }
@@ -224,7 +229,7 @@ export class Game {
     this.shooter.currentBubble = this.shooter.nextBubble;
     const world = WORLDS[this.currentWorld];
     const lvl   = world.levels[this.currentLevel];
-    this.shooter.nextBubble = this.shooter.getNewBubble(this.grid.pool, lvl.colors);
+    this.shooter.nextBubble = this.shooter.getNewBubble(this.grid, lvl.colors);
     this._updateHintColor();
     this._updateHUD();
   }
@@ -269,10 +274,13 @@ export class Game {
     if (cluster.length >= 3) {
       this.combo++;
       if (this.combo > this.maxCombo) this.maxCombo = this.combo;
+      if (cluster.length >= 5 || this.combo >= 3) {
+        this.shake = Math.min(8, cluster.length + this.combo);
+      }
       const points = cluster.length * 100 * this.combo;
       this.score += points;
 
-      this.sound.playPop();
+      this.sound.playPop(cluster.length);
       if (this.combo > 1) this.sound.playCombo();
 
       for (const { row: r, col: c } of cluster) {
@@ -303,6 +311,10 @@ export class Game {
         if (floating.length > 0) {
           this.sound.playDrop();
           this.floatTexts.push(new FloatText(CANVAS_W / 2, CANVAS_H / 2, `DROP! +${floating.length * 50}`, '#ff6600'));
+          if (floating.length >= 4) {
+            this.slowmo = 0.5;                       // momento clipável: chuva de bolhas em câmera lenta
+            this.shake = Math.min(10, this.shake + floating.length);
+          }
         }
         this._updateHUD();
         setTimeout(() => {
@@ -331,8 +343,10 @@ export class Game {
 
     // Apply theme
     setThemeEmojis(world.emojis);
+    setThemeSprites(this._getWorldSprites(this.currentWorld));
     setStarFieldTheme(world);
     this._initBgEmojis(world);
+    this.sound.playMusic(this.currentWorld);
 
     // Reset level state
     this.score    = 0;
@@ -343,8 +357,8 @@ export class Game {
 
     // Init grid
     this.grid.init(lvl.rows, lvl.colors);
-    this.shooter.currentBubble = this.shooter.getNewBubble(this.grid.pool, lvl.colors);
-    this.shooter.nextBubble    = this.shooter.getNewBubble(this.grid.pool, lvl.colors);
+    this.shooter.currentBubble = this.shooter.getNewBubble(this.grid, lvl.colors);
+    this.shooter.nextBubble    = this.shooter.getNewBubble(this.grid, lvl.colors);
     this.projectile.active     = false;
     this._updateHintColor();
 
@@ -364,11 +378,17 @@ export class Game {
     if (this.maxCombo >= 3) stars = 2;
     if (this.shots / this.maxShots >= 0.4) stars = 3;
 
+    // Level clear bonus (GDD §3.3): remaining shots x 200 + level x 500
+    const bonus = this.shots * 200 + (this.currentLevel + 1) * 500;
+    this.score += bonus;
+    this._updateHUD();
+
     // Save progress
     this.progress.setStars(this.currentWorld, this.currentLevel, stars);
     this.progress.addScore(this.score);
 
     this.floatTexts.push(new FloatText(CANVAS_W / 2, CANVAS_H / 2 - 20, `CLEAR!`, '#00ffcc'));
+    this.floatTexts.push(new FloatText(CANVAS_W / 2, CANVAS_H / 2 + 15, `BONUS +${bonus}`, '#ffcc00'));
 
     setTimeout(() => {
       this._showResults(stars, false);
@@ -437,6 +457,19 @@ export class Game {
     document.getElementById('comboDisplay').textContent = this.combo;
   }
 
+  /** Pixel art icons do mundo (lazy, cacheado). */
+  _getWorldSprites(worldIdx) {
+    if (!this.spriteCache.has(worldIdx)) {
+      const imgs = Array.from({ length: 6 }, (_, i) => {
+        const img = new Image();
+        img.src = `assets/sprites/world${worldIdx}-slot${i}.png`;
+        return img;
+      });
+      this.spriteCache.set(worldIdx, imgs);
+    }
+    return this.spriteCache.get(worldIdx);
+  }
+
   // ===========================================================================
   // FLOATING BACKGROUND EMOJIS (game canvas layer)
   // ===========================================================================
@@ -497,6 +530,11 @@ export class Game {
 
     if (this.state !== 'PLAYING' && this.state !== 'ANIMATING') return;
 
+    // Juice: decaimento do shake e do slow-mo em tempo real
+    if (this.shake > 0.1) this.shake *= Math.pow(0.0001, dt); else this.shake = 0;
+    if (this.slowmo > 0) this.slowmo -= dt;
+    if (this.slowmo > 0) dt *= 0.35; // câmera lenta na chuva de bolhas
+
     this.grid.update(dt);
     this.particles.update();
     this._updateBgEmojis(dt);
@@ -507,8 +545,12 @@ export class Game {
     }
 
     if (this.projectile.active) {
-      this.projectile.update();
-      this._checkCollision();
+      // Substeps: nunca mover mais que ~meio raio por checagem (evita tunneling)
+      const steps = Math.max(1, Math.ceil((SHOOT_SPEED * dt) / (BUBBLE_R * 0.75)));
+      for (let i = 0; i < steps && this.projectile.active; i++) {
+        this.projectile.update(dt / steps);
+        this._checkCollision();
+      }
     }
 
     for (const row of this.grid.grid) {
@@ -523,6 +565,16 @@ export class Game {
   _draw() {
     const ctx = this.ctx;
     ctx.clearRect(0, 0, CANVAS_W, CANVAS_H);
+
+    // Screenshake: desloca o mundo inteiro por alguns frames
+    const shaking = this.shake > 0;
+    if (shaking) {
+      ctx.save();
+      ctx.translate(
+        (Math.random() - 0.5) * this.shake,
+        (Math.random() - 0.5) * this.shake,
+      );
+    }
 
     // Themed background gradient
     const world = WORLDS[this.currentWorld];
@@ -578,5 +630,7 @@ export class Game {
       ctx.fillText('CLEARED!', CANVAS_W / 2, CANVAS_H / 2);
       ctx.restore();
     }
+
+    if (shaking) ctx.restore();
   }
 }

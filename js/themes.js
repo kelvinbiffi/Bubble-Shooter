@@ -16,7 +16,7 @@ export const WORLDS = [
     name: 'Dinosaur Valley',
     icon: '🦕',
     bgGradient: ['#1a0e2e', '#0d1b1a'],
-    starTint: 'rgba(255,180,60,0.4)',
+    starTint: 'rgba(255,180,60,0.07)',
     // One emoji per color index (maps to COLORS array)
     emojis: ['🦕', '🦖', '🦎', '🐊', '🦴', '🌿'],
     levels: [
@@ -34,7 +34,7 @@ export const WORLDS = [
     name: 'Kaiju Island',
     icon: '🐉',
     bgGradient: ['#2a0a1a', '#1a0520'],
-    starTint: 'rgba(255,80,50,0.4)',
+    starTint: 'rgba(255,80,50,0.07)',
     emojis: ['🐉', '🦑', '🔥', '⚡', '🌋', '🦂'],
     levels: [
       { rows: 5, colors: 3, shots: 28 },
@@ -51,7 +51,7 @@ export const WORLDS = [
     name: 'Deep Ocean',
     icon: '🐙',
     bgGradient: ['#040a20', '#021a2a'],
-    starTint: 'rgba(60,180,255,0.4)',
+    starTint: 'rgba(60,180,255,0.07)',
     emojis: ['🐙', '🦈', '🐠', '🐳', '🐚', '🦀'],
     levels: [
       { rows: 6, colors: 4, shots: 26 },

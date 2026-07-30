@@ -11,11 +11,13 @@
 import { BUBBLE_R } from '../constants.js';
 
 // Theme state — updated by the game when a level starts
-let _themeEmojis = null;   // e.g. ['🦕','🦖','🦎','🐊','🦴','🌿']
+let _themeEmojis = null;   // e.g. ['🦕','🦖','🦎','🐊','🦴','🌿'] (fallback)
+let _themeSprites = null;  // HTMLImageElement[] pixel art icons (preferred)
 let _hintColorIdx = -1;    // colorIdx of the current shooter bubble (-1 = no hint)
 let _hintTime = 0;         // global time for hint animation
 
 export function setThemeEmojis(emojis) { _themeEmojis = emojis; }
+export function setThemeSprites(images) { _themeSprites = images; }
 export function setHintColorIdx(idx) { _hintColorIdx = idx; }
 export function updateHintTime(t) { _hintTime = t; }
 
@@ -80,8 +82,18 @@ export function drawBubble(ctx, b) {
   ctx.fillStyle = grad;
   ctx.fill();
 
-  // ---- Emoji inside the bubble ----
-  if (_themeEmojis && b.colorIdx != null && _themeEmojis[b.colorIdx]) {
+  // ---- Pixel art icon inside the bubble (emoji as fallback while loading) ----
+  const sprite = _themeSprites?.[b.colorIdx];
+  if (sprite && sprite.complete && sprite.naturalWidth > 0) {
+    ctx.shadowBlur = 0;
+    ctx.globalAlpha = alpha * 0.95;
+    const size = Math.round(r * 1.45);
+    const prevSmoothing = ctx.imageSmoothingEnabled;
+    ctx.imageSmoothingEnabled = false;
+    ctx.drawImage(sprite, Math.round(x - size / 2), Math.round(y - size / 2), size, size);
+    ctx.imageSmoothingEnabled = prevSmoothing;
+    ctx.globalAlpha = alpha;
+  } else if (_themeEmojis && b.colorIdx != null && _themeEmojis[b.colorIdx]) {
     ctx.shadowBlur = 0;
     ctx.globalAlpha = alpha * 0.85;
     const fontSize = Math.round(r * 1.1);

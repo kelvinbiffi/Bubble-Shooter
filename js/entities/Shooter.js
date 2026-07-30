@@ -50,13 +50,23 @@ export class Shooter {
 
   /**
    * Create a new random bubble from the object pool.
-   * Color count increases with level for progressive difficulty.
-   * @param {ObjectPool} pool   - Bubble pool to draw from
+   * Draws ONLY from colors still alive on the grid (never a dead shot);
+   * falls back to the level's full color range on an empty grid.
+   * @param {BubbleGrid} grid   - Grid (pool + live colors)
    * @param {number}     colors - How many colors are in play this level
    */
-  getNewBubble(pool, colors) {
-    const b = pool.get();
-    b.colorIdx = Math.floor(Math.random() * colors);
+  getNewBubble(grid, colors) {
+    const present = new Set();
+    for (const row of grid.grid) {
+      for (const gb of (row || [])) {
+        if (gb?.alive && !gb.popping) present.add(gb.colorIdx);
+      }
+    }
+    const pool = [...present];
+    const b = grid.pool.get();
+    b.colorIdx = pool.length
+      ? pool[Math.floor(Math.random() * pool.length)]
+      : Math.floor(Math.random() * colors);
     b.color    = COLORS[b.colorIdx];
     b.pos      = this.pos.clone();
     b.alive    = true;
@@ -130,6 +140,13 @@ export class Shooter {
       ctx.stroke();
       ctx.setLineDash([]);
       ctx.restore();
+    }
+
+    // Current bubble loaded on the launcher (QA-01-01)
+    if (this.currentBubble) {
+      this.currentBubble.pos.x = this.pos.x;
+      this.currentBubble.pos.y = this.pos.y;
+      drawBubble(ctx, this.currentBubble);
     }
 
     // Next bubble preview (small, to the right)

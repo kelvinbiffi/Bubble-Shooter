@@ -58,15 +58,20 @@ export class Projectile {
       Math.sin(angle) * SHOOT_SPEED,
     );
     this.active = true;
+    this.trail  = [];
   }
 
-  /** Move the bubble and handle wall reflections */
-  update() {
+  /** Move the bubble and handle wall reflections. dt in seconds. */
+  update(dt) {
     if (!this.active) return;
 
-    // Apply velocity (simple Euler integration)
-    this.bubble.pos.x += this.vel.x;
-    this.bubble.pos.y += this.vel.y;
+    // Apply velocity scaled by delta time (frame-rate independent)
+    this.bubble.pos.x += this.vel.x * dt;
+    this.bubble.pos.y += this.vel.y * dt;
+
+    // Trail: rastro curto e esmaecente atrás do tiro
+    this.trail.push({ x: this.bubble.pos.x, y: this.bubble.pos.y });
+    if (this.trail.length > 10) this.trail.shift();
 
     // Left wall bounce
     if (this.bubble.pos.x - BUBBLE_R < 0) {
@@ -84,6 +89,19 @@ export class Projectile {
   /** Render the bubble while in flight */
   draw(ctx) {
     if (!this.active || !this.bubble) return;
+    if (this.trail?.length) {
+      ctx.save();
+      for (let i = 0; i < this.trail.length; i++) {
+        const t = this.trail[i];
+        const f = (i + 1) / this.trail.length;
+        ctx.globalAlpha = f * 0.18;
+        ctx.fillStyle = this.bubble.color;
+        ctx.beginPath();
+        ctx.arc(t.x, t.y, BUBBLE_R * 0.55 * f, 0, Math.PI * 2);
+        ctx.fill();
+      }
+      ctx.restore();
+    }
     drawBubble(ctx, this.bubble);
   }
 }

@@ -19,7 +19,7 @@ export const CANVAS_W   = 420;      // Playfield width
 export const CANVAS_H   = 540;      // Playfield height
 
 // ---- Physics ----
-export const SHOOT_SPEED = 10;      // Projectile velocity (slightly slower for denser grid)
+export const SHOOT_SPEED = 600;     // Projectile velocity in px/SECOND (frame-rate independent)
 
 // ---- Game Rules ----
 export const MIN_CLUSTER = 3;       // Minimum connected same-color bubbles to pop
