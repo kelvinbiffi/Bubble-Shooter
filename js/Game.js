@@ -287,8 +287,8 @@ export class Game {
     const b = this.projectile.bubble;
     if (!b) return false;
 
-    if (b.pos.y - BUBBLE_R <= 40) return this._snapBubble(b);
-
+    // Contato com bolha existente tem PRIORIDADE sobre o teto (senão tiros
+    // rasantes no topo viravam bolha fantasma desconectada na fileira 1)
     for (let r = 0; r < this.grid.grid.length; r++) {
       for (let c = 0; c < (this.grid.grid[r] || []).length; c++) {
         const gb = this.grid.grid[r]?.[c];
@@ -298,13 +298,20 @@ export class Game {
         }
       }
     }
+
+    // Teto: só quando o centro alcança a faixa da fileira 0
+    if (b.pos.y <= 44) return this._snapBubble(b);
     return false;
   }
 
-  _snapBubble(b) {
+  _snapBubble(b, contactBubble, contactRow, contactCol) {
     this.projectile.active = false;
-    const { row, col } = this.grid.worldToGrid(b.pos.x, b.pos.y);
-    const placed = this.grid.placeBubble(b, row, col);
+    let { row, col } = this.grid.worldToGrid(b.pos.x, b.pos.y);
+    if (!contactBubble) row = 0; // snap de teto gruda SEMPRE na fileira 0
+    const placed = this.grid.placeBubble(
+      b, row, col,
+      contactBubble ? { row: contactRow, col: contactCol } : null,
+    );
     const cluster = this.grid.findCluster(placed.row, placed.col);
 
     if (cluster.length >= 3) {
@@ -354,6 +361,25 @@ export class Game {
         }
         this._updateHUD();
         setTimeout(() => {
+          // Vassoura anti-fantasma: qualquer bolha que sobrou desconectada cai
+          const strays = this.grid.findFloating();
+          if (strays.length) {
+            for (const { row: sr, col: sc } of strays) {
+              const sb = this.grid.grid[sr]?.[sc];
+              if (sb && !sb.popping) {
+                this.score += 50;
+                sb.popping = true; sb.popProgress = 0;
+                this.particles.emit(sb.pos.x, sb.pos.y, sb.color, 8);
+              }
+            }
+            this.sound.playDrop();
+            this._updateHUD();
+            setTimeout(() => {
+              if (this.grid.countAlive() === 0) this._levelClear();
+              else if (this.shots <= 0) this._gameOver();
+            }, 400);
+            return;
+          }
           if (this.grid.countAlive() === 0) this._levelClear();
           else if (this.shots <= 0) this._gameOver();
         }, 600);

@@ -207,10 +207,10 @@ export class BubbleGrid {
     const connected = new Set();
     const queue     = [];
 
-    // Seed BFS from the top row
+    // Seed BFS from the top row (bolha morrendo não segura ninguém)
     const topRow = this.grid[0] || [];
     for (let c = 0; c < topRow.length; c++) {
-      if (topRow[c]?.alive) {
+      if (topRow[c]?.alive && !topRow[c].popping) {
         queue.push({ row: 0, col: c });
         connected.add(`0,${c}`);
       }
@@ -220,6 +220,7 @@ export class BubbleGrid {
     while (queue.length) {
       const { row, col } = queue.shift();
       for (const n of this.getNeighbors(row, col)) {
+        if (n.bubble.popping) continue;
         const key = `${n.row},${n.col}`;
         if (!connected.has(key)) {
           connected.add(key);
@@ -284,11 +285,36 @@ export class BubbleGrid {
   }
 
   /**
-   * Place a bubble into the grid at the nearest free cell.
-   * Clamps to valid grid bounds.
+   * Free cells directly adjacent to (r, c), nearest to `pos` first.
+   * Used so a projectile always lands GLUED to the bubble it touched.
    */
-  placeBubble(bubble, row, col) {
-    ({ row, col } = this._nearestFreeCell(row, col, bubble.pos));
+  _freeCellAdjacentTo(r, c, pos) {
+    const maxC = (rr) => (rr % 2 === 0 ? COLS : COLS - 1);
+    const dirs = r % 2 === 0
+      ? [[-1, -1], [-1, 0], [0, -1], [0, 1], [1, -1], [1, 0]]
+      : [[-1, 0], [-1, 1], [0, -1], [0, 1], [1, 0], [1, 1]];
+    const free = [];
+    for (const [dr, dc] of dirs) {
+      const nr = r + dr;
+      const nc = c + dc;
+      if (nr < 0 || nc < 0 || nc >= maxC(nr)) continue;
+      if (!(this.grid[nr]?.[nc]?.alive)) free.push({ row: nr, col: nc });
+    }
+    if (!free.length) return null;
+    free.sort((a, b) =>
+      this.gridToWorld(a.row, a.col).distanceTo(pos) -
+      this.gridToWorld(b.row, b.col).distanceTo(pos));
+    return free[0];
+  }
+
+  /**
+   * Place a bubble into the grid: adjacent to the contact bubble when known,
+   * otherwise the nearest free cell to the rounded impact position.
+   */
+  placeBubble(bubble, row, col, contact = null) {
+    let spot = contact ? this._freeCellAdjacentTo(contact.row, contact.col, bubble.pos) : null;
+    if (!spot) spot = this._nearestFreeCell(row, col, bubble.pos);
+    ({ row, col } = spot);
     if (!this.grid[row]) this.grid[row] = [];
 
     const b    = this.pool.get();

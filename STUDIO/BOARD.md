@@ -1,5 +1,5 @@
 # BOARD — BUBBLE BLASTER (remaster)
-> GDD: docs/GDD.md (herdado do repo original, v1.0) · Stack: Vanilla JS Canvas2D + Vite (mantida, jogo já pronto) · Iteração atual: 0 · Estado: produção
+> GDD: docs/GDD.md (herdado do repo original, v1.0) · Stack: Vanilla JS Canvas2D + Vite (mantida, jogo já pronto) · Iteração atual: 4 · Estado: PRONTO, aguardando OK do Kelvin pra publicar (ver STUDIO/PUBLISH.md)
 
 Origem: https://github.com/kelvinbiffi/Bubble-Shooter (clonado 30/07/2026). Jogo já funcional com 3 mundos temáticos (Dinosaur Valley, Kaiju Island, Deep Ocean), 8 níveis por mundo, estrelas, progresso em localStorage, som WebAudio sintetizado, touch básico.
 
