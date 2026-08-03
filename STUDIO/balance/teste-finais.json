@@ -1,0 +1,15 @@
+[
+  {
+    "name": "Candidatos finais",
+    "levels": [
+      { "rows": 7, "colors": 4, "shots": 42 },
+      { "rows": 7, "colors": 4, "shots": 44 },
+      { "rows": 8, "colors": 4, "shots": 44 },
+      { "rows": 8, "colors": 4, "shots": 46 },
+      { "rows": 8, "colors": 4, "shots": 48 },
+      { "rows": 4, "colors": 5, "shots": 46 },
+      { "rows": 5, "colors": 5, "shots": 50 },
+      { "rows": 8, "colors": 4, "shots": 42 }
+    ]
+  }
+]

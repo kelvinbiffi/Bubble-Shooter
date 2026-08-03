@@ -63,7 +63,27 @@ export class Game {
     this.shake  = 0;   // intensidade do screenshake (px)
     this.slowmo = 0;   // segundos restantes de slow-mo
 
+    // ---- Onboarding ----
+    this.showHint = false; // instrução na primeira partida, some no primeiro tiro
+
     this._bindEvents();
+    this._bindHudButtons();
+  }
+
+  _bindHudButtons() {
+    const mute = document.getElementById('btnHudMute');
+    const map  = document.getElementById('btnHudMap');
+    if (mute) {
+      mute.textContent = this.sound.muted ? '🔇' : '🔊';
+      mute.addEventListener('click', () => {
+        const m = this.sound.toggleMute();
+        mute.textContent = m ? '🔇' : '🔊';
+      });
+    }
+    map?.addEventListener('click', () => {
+      if (this.state !== 'PLAYING') return;
+      this.showMap();
+    });
   }
 
   // ===========================================================================
@@ -117,101 +137,116 @@ export class Game {
 
   showMap() {
     this.state = 'MAP';
-    const world = WORLDS[this.currentWorld];
-    setStarFieldTheme(world);
+    document.getElementById('btnHudMap')?.classList.add('hidden');
+
+    const LEVELS_PER_WORLD = 8;
+    const TOTAL = WORLDS.length * LEVELS_PER_WORLD;
+
+    // Fronteira: último nível destravado (onde o jogador está na jornada)
+    let frontier = 0;
+    for (let i = 0; i < TOTAL; i++) {
+      if (this.progress.isUnlocked(Math.floor(i / LEVELS_PER_WORLD), i % LEVELS_PER_WORLD)) frontier = i;
+    }
+    setStarFieldTheme(WORLDS[Math.floor(frontier / LEVELS_PER_WORLD)]);
 
     const overlay = document.getElementById('overlay');
     overlay.classList.remove('hidden');
+    overlay.classList.add('map-mode');
 
-    // Build map HTML
-    let html = `<div class="map-screen">`;
+    // Geometria da jornada (trilha vertical serpenteando, nível 1 embaixo)
+    const JW   = 340;
+    const STEP = 92;
+    const H    = TOTAL * STEP + 280;
+    const nodeXY = (i) => ({
+      x: JW / 2 + Math.sin(i * 1.05) * (JW / 2 - 60),
+      y: H - 160 - i * STEP,
+    });
 
-    // World header with navigation
-    html += `<div class="map-header">`;
-    if (this.currentWorld > 0) {
-      html += `<button type="button" class="map-nav" data-dir="-1">\u25C0</button>`;
-    } else {
-      html += `<div class="map-nav-spacer"></div>`;
+    // Path serpenteando por todos os nós + rabo até o coming soon
+    const pts = Array.from({ length: TOTAL }, (_, i) => nodeXY(i));
+    const soon = { x: JW / 2, y: pts[TOTAL - 1].y - STEP };
+    let d = `M ${pts[0].x.toFixed(1)} ${pts[0].y}`;
+    for (let i = 1; i < TOTAL; i++) {
+      const a = pts[i - 1], b = pts[i];
+      const my = (a.y + b.y) / 2;
+      d += ` C ${a.x.toFixed(1)} ${my}, ${b.x.toFixed(1)} ${my}, ${b.x.toFixed(1)} ${b.y}`;
     }
-    html += `<div class="map-world-title">${world.icon} ${world.name}</div>`;
-    if (this.currentWorld < WORLDS.length - 1 && this.progress.isWorldUnlocked(this.currentWorld + 1)) {
-      html += `<button type="button" class="map-nav" data-dir="1">\u25B6</button>`;
-    } else {
-      html += `<div class="map-nav-spacer"></div>`;
-    }
-    html += `</div>`;
+    const lm = (pts[TOTAL - 1].y + soon.y) / 2;
+    d += ` C ${pts[TOTAL - 1].x.toFixed(1)} ${lm}, ${soon.x} ${lm}, ${soon.x} ${soon.y}`;
 
-    // Level trail — zigzag: 4 per row
-    html += `<div class="map-trail">`;
-    const levels = world.levels;
-    const perRow = 4;
-    for (let i = 0; i < levels.length; i += perRow) {
-      const rowLevels = [];
-      for (let j = i; j < Math.min(i + perRow, levels.length); j++) {
-        rowLevels.push(j);
-      }
-      const isReversed = Math.floor(i / perRow) % 2 === 1;
-      if (isReversed) rowLevels.reverse();
+    let html = `<div class="map-screen v2"><div class="map-journey" style="width:${JW}px;height:${H}px">`;
+    html += `<svg class="map-path" width="${JW}" height="${H}" viewBox="0 0 ${JW} ${H}">`;
+    html += `<path d="${d}" fill="none" stroke="rgba(0,255,204,0.25)" stroke-width="3" stroke-dasharray="1 10" stroke-linecap="round"/>`;
+    html += `</svg>`;
 
-      html += `<div class="map-row${isReversed ? ' reverse' : ''}">`;
-      for (const lvlIdx of rowLevels) {
-        const stars    = this.progress.getStars(this.currentWorld, lvlIdx);
-        const unlocked = this.progress.isUnlocked(this.currentWorld, lvlIdx);
-        const cls      = stars > 0 ? 'completed' : unlocked ? 'unlocked' : 'locked';
-        const starStr  = stars > 0 ? '\u2B50'.repeat(stars) : '';
-
-        html += `<div class="map-node-wrapper">`;
-        if (unlocked) {
-          html += `<button type="button" class="map-node ${cls}" data-level="${lvlIdx}">`;
-          html += `<span class="map-node-num">${lvlIdx + 1}</span>`;
-          html += `</button>`;
-        } else {
-          html += `<div class="map-node ${cls}">`;
-          html += `<span class="map-node-num">\uD83D\uDD12</span>`;
-          html += `</div>`;
-        }
-        if (starStr) html += `<div class="map-node-stars">${starStr}</div>`;
-        html += `</div>`;
-
-        // Connecting line between nodes
-        const actualIdx = isReversed ? rowLevels[rowLevels.indexOf(lvlIdx)] : lvlIdx;
-        if (rowLevels.indexOf(lvlIdx) < rowLevels.length - 1) {
-          html += `<div class="map-line"></div>`;
-        }
-      }
-      html += `</div>`;
-
-      // Vertical connector between rows
-      if (i + perRow < levels.length) {
-        const align = isReversed ? 'left' : 'right';
-        html += `<div class="map-vline ${align}"></div>`;
+    // Decoração temática de cada região (emojis do mundo espalhados na seção)
+    for (let w = 0; w < WORLDS.length; w++) {
+      const world = WORLDS[w];
+      for (let k = 0; k < 6; k++) {
+        const i = w * LEVELS_PER_WORLD + (k * 1.33 + 0.4);
+        const y = H - 160 - i * STEP;
+        const x = JW / 2 - Math.sin(i * 1.05) * (JW / 2 - 45); // lado oposto ao nó
+        const emoji = world.emojis[k % world.emojis.length];
+        const size = 22 + ((k * 7) % 14);
+        html += `<div class="map-deco" style="left:${x.toFixed(0)}px;top:${y.toFixed(0)}px;font-size:${size}px">${emoji}</div>`;
       }
     }
-    html += `</div>`;
 
-    // Score display
-    html += `<div class="map-score">`;
-    html += `\u2B50 ${this.progress.totalStars} Stars \u00B7 Score: ${this.progress.totalScore.toLocaleString()}`;
-    html += `</div>`;
+    // Banner de entrada de cada mundo (embaixo do primeiro nó da região)
+    for (let w = 0; w < WORLDS.length; w++) {
+      const p = nodeXY(w * LEVELS_PER_WORLD);
+      const unlockedWorld = this.progress.isWorldUnlocked(w);
+      html += `<div class="world-banner${unlockedWorld ? '' : ' locked'}" style="left:${JW / 2}px;top:${p.y + 52}px">`;
+      html += `${WORLDS[w].icon} ${WORLDS[w].name}</div>`;
+    }
 
+    // Nós dos níveis
+    for (let i = 0; i < TOTAL; i++) {
+      const w = Math.floor(i / LEVELS_PER_WORLD);
+      const l = i % LEVELS_PER_WORLD;
+      const p = pts[i];
+      const stars    = this.progress.getStars(w, l);
+      const unlocked = this.progress.isUnlocked(w, l);
+      const cls      = stars > 0 ? 'completed' : unlocked ? 'unlocked' : 'locked';
+      const isFrontier = i === frontier && stars === 0;
+      if (unlocked) {
+        html += `<button type="button" class="map-node abs ${cls}${isFrontier ? ' frontier' : ''}" data-idx="${i}" style="left:${p.x.toFixed(0)}px;top:${p.y}px">`;
+        html += `<span class="map-node-num">${l + 1}</span></button>`;
+      } else {
+        html += `<div class="map-node abs ${cls}" style="left:${p.x.toFixed(0)}px;top:${p.y}px">`;
+        html += `<span class="map-node-num">🔒</span></div>`;
+      }
+      if (stars > 0) {
+        html += `<div class="map-node-stars abs" style="left:${p.x.toFixed(0)}px;top:${p.y + 30}px">${'⭐'.repeat(stars)}</div>`;
+      }
+    }
+
+    // A jornada continua: coming soon no topo
+    html += `<div class="map-node abs soon" style="left:${soon.x}px;top:${soon.y}px">🚀</div>`;
+    html += `<div class="world-banner locked" style="left:${JW / 2}px;top:${soon.y - 46}px">MORE WORLDS SOON</div>`;
+
+    html += `</div>`; // .map-journey
+    html += `<div class="map-scorebar">⭐ ${this.progress.totalStars} Stars · Score: ${this.progress.totalScore.toLocaleString()}</div>`;
     html += `</div>`;
     overlay.innerHTML = html;
 
-    // Wire up events
-    overlay.querySelectorAll('.map-nav').forEach(btn => {
-      btn.addEventListener('click', () => {
-        const dir = parseInt(btn.dataset.dir);
-        this.currentWorld += dir;
-        this.showMap();
-      });
-    });
-
+    // Clique no nível: converte índice global em mundo+nível
     overlay.querySelectorAll('.map-node.unlocked, .map-node.completed').forEach(btn => {
       btn.addEventListener('click', () => {
-        this.currentLevel = parseInt(btn.dataset.level);
+        const idx = parseInt(btn.dataset.idx);
+        this.currentWorld = Math.floor(idx / LEVELS_PER_WORLD);
+        this.currentLevel = idx % LEVELS_PER_WORLD;
         this._startLevel();
       });
     });
+
+    // Auto-scroll até a fronteira do jogador (centralizada)
+    const fNode = overlay.querySelector('.map-node.frontier') ||
+                  overlay.querySelectorAll('.map-node.unlocked, .map-node.completed')[0];
+    if (fNode) {
+      const y = parseInt(fNode.style.top) - overlay.clientHeight / 2;
+      overlay.scrollTop = Math.max(0, Math.min(y, H - overlay.clientHeight));
+    }
   }
 
   // ===========================================================================
@@ -221,6 +256,7 @@ export class Game {
   _shoot() {
     const b = this.shooter.currentBubble;
     if (!b) return;
+    this.showHint = false;
     b.pos = this.shooter.pos.clone();
     this.projectile.launch(b, this.shooter.angle);
     this.shots--;
@@ -362,8 +398,16 @@ export class Game {
     this.projectile.active     = false;
     this._updateHintColor();
 
+    // Onboarding: instrução só na primeiríssima partida do jogador
+    this.showHint = this.currentWorld === 0 && this.currentLevel === 0 && this.progress.totalStars === 0;
+
+    // Botão de mapa visível durante a partida
+    document.getElementById('btnHudMap')?.classList.remove('hidden');
+
     // Hide overlay, start playing
-    document.getElementById('overlay').classList.add('hidden');
+    const overlayEl = document.getElementById('overlay');
+    overlayEl.classList.add('hidden');
+    overlayEl.classList.remove('map-mode');
     this.state = 'PLAYING';
     this._updateHUD();
     if (!this.raf) this._loop(0);
@@ -587,10 +631,25 @@ export class Game {
     // Floating themed emojis (behind everything)
     this._drawBgEmojis(ctx);
 
-    // Danger zone line
+    // Danger zone line (pulsa vermelho quando a pilha chega perto)
+    let dangerNear = false;
+    for (const row of this.grid.grid) {
+      for (const b of (row || [])) {
+        if (b?.alive && !b.popping && b.pos.y > CANVAS_H - 100 - 65) { dangerNear = true; break; }
+      }
+      if (dangerNear) break;
+    }
     ctx.save();
-    ctx.strokeStyle = 'rgba(255,51,100,0.2)';
-    ctx.lineWidth = 1;
+    if (dangerNear) {
+      const pulse = 0.35 + Math.abs(Math.sin(this.gameTime * 5)) * 0.45;
+      ctx.strokeStyle = `rgba(255,51,100,${pulse})`;
+      ctx.lineWidth = 2;
+      ctx.shadowBlur = 8;
+      ctx.shadowColor = '#ff3364';
+    } else {
+      ctx.strokeStyle = 'rgba(255,51,100,0.2)';
+      ctx.lineWidth = 1;
+    }
     ctx.setLineDash([4, 6]);
     ctx.beginPath();
     ctx.moveTo(0, CANVAS_H - 100);
@@ -598,6 +657,23 @@ export class Game {
     ctx.stroke();
     ctx.setLineDash([]);
     ctx.restore();
+
+    // Instrução da primeira partida (some no primeiro tiro)
+    if (this.showHint && this.state === 'PLAYING') {
+      ctx.save();
+      const isTouch = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
+      ctx.font = 'bold 13px Orbitron, monospace';
+      ctx.textAlign = 'center';
+      ctx.fillStyle = `rgba(0,255,204,${0.55 + Math.sin(this.gameTime * 3) * 0.25})`;
+      ctx.shadowBlur = 12;
+      ctx.shadowColor = '#00ffcc';
+      ctx.fillText(isTouch ? 'TAP TO SHOOT' : 'AIM WITH MOUSE · CLICK TO SHOOT', CANVAS_W / 2, CANVAS_H / 2 + 40);
+      ctx.font = '10px "Space Mono", monospace';
+      ctx.fillStyle = 'rgba(255,255,255,0.5)';
+      ctx.shadowBlur = 0;
+      ctx.fillText('MATCH 3 OR MORE OF THE SAME COLOR', CANVAS_W / 2, CANVAS_H / 2 + 62);
+      ctx.restore();
+    }
 
     // Game layers
     this.grid.draw(ctx);

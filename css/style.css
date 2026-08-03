@@ -119,6 +119,32 @@ body {
 .hud-value.pink   { color: var(--accent2); text-shadow: var(--glow2); }
 .hud-value.yellow  { color: var(--accent3); text-shadow: 0 0 20px rgba(255, 204, 0, 0.5); }
 
+/* ---- HUD action buttons (mute / map) ---- */
+.hud-actions { display: flex; gap: 6px; align-items: center; }
+
+.hud-btn {
+  width: 32px;
+  height: 32px;
+  border: 1px solid rgba(0, 255, 204, 0.35);
+  border-radius: 6px;
+  background: rgba(0, 255, 204, 0.06);
+  color: var(--accent);
+  font-size: 14px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s;
+  padding: 0;
+}
+
+.hud-btn:hover, .hud-btn:active {
+  background: rgba(0, 255, 204, 0.18);
+  box-shadow: var(--glow);
+}
+
+.hud-btn.hidden { display: none; }
+
 /* ---- Title Bar ---- */
 .title {
   font-family: 'Orbitron', monospace;
@@ -515,6 +541,116 @@ body {
   font-size: clamp(24px, 5vw, 36px);
   margin-bottom: clamp(8px, 1.5vh, 16px);
   letter-spacing: 4px;
+}
+
+/* ==========================================================================
+   WORLD MAP V2 — Jornada contínua (Candy-Crush-like)
+   ========================================================================== */
+
+#overlay.map-mode {
+  justify-content: flex-start;
+  padding: 0;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(0, 255, 204, 0.25) transparent;
+}
+
+#overlay.map-mode::-webkit-scrollbar { width: 6px; }
+#overlay.map-mode::-webkit-scrollbar-track { background: transparent; }
+#overlay.map-mode::-webkit-scrollbar-thumb {
+  background: rgba(0, 255, 204, 0.25);
+  border-radius: 3px;
+}
+
+.map-screen.v2 {
+  width: 100%;
+  display: block;
+}
+
+.map-journey {
+  position: relative;
+  margin: 0 auto;
+}
+
+.map-path {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.map-node.abs {
+  position: absolute;
+  transform: translate(-50%, -50%);
+  width: 46px;
+  height: 46px;
+  margin: 0;
+}
+
+.map-node.abs:hover { transform: translate(-50%, -50%) scale(1.15); }
+.map-node.abs:active { transform: translate(-50%, -50%) scale(0.95); }
+
+/* Fronteira: o próximo nível do jogador, maior e pulsando */
+.map-node.frontier {
+  width: 54px;
+  height: 54px;
+  animation: node-pulse 1.4s ease-in-out infinite;
+  box-shadow: 0 0 24px rgba(255, 204, 0, 0.55);
+}
+
+.map-node.soon {
+  border-color: rgba(0, 255, 204, 0.35);
+  color: var(--accent);
+  background: rgba(0, 255, 204, 0.05);
+  font-size: 18px;
+  cursor: default;
+}
+
+.map-node-stars.abs {
+  position: absolute;
+  transform: translateX(-50%);
+  white-space: nowrap;
+}
+
+.world-banner {
+  position: absolute;
+  transform: translateX(-50%);
+  font-family: 'Orbitron', monospace;
+  font-size: 14px;
+  font-weight: 900;
+  letter-spacing: 2px;
+  color: var(--accent);
+  text-shadow: var(--glow);
+  white-space: nowrap;
+  padding: 4px 14px;
+  border: 1px solid rgba(0, 255, 204, 0.25);
+  border-radius: 20px;
+  background: rgba(5, 5, 16, 0.75);
+}
+
+.world-banner.locked {
+  color: rgba(255, 255, 255, 0.3);
+  text-shadow: none;
+  border-color: rgba(255, 255, 255, 0.12);
+}
+
+.map-deco {
+  position: absolute;
+  transform: translate(-50%, -50%);
+  opacity: 0.14;
+  pointer-events: none;
+}
+
+.map-scorebar {
+  position: sticky;
+  bottom: 0;
+  width: 100%;
+  text-align: center;
+  padding: 12px 0 14px;
+  font-family: 'Space Mono', monospace;
+  font-size: 11px;
+  letter-spacing: 2px;
+  color: rgba(255, 255, 255, 0.55);
+  background: linear-gradient(transparent, rgba(5, 5, 16, 0.95) 40%);
+  pointer-events: none;
 }
 
 /* ==========================================================================
