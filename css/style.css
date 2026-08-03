@@ -653,6 +653,76 @@ body {
   pointer-events: none;
 }
 
+.map-scorebar .lb-btn {
+  pointer-events: auto;
+  display: inline-flex;
+  vertical-align: middle;
+  margin-left: 8px;
+  width: 28px;
+  height: 28px;
+  font-size: 13px;
+}
+
+/* ---- Ranking global ---- */
+.rank-box {
+  margin-top: 14px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.rank-status {
+  font-family: 'Space Mono', monospace;
+  font-size: 11px;
+  letter-spacing: 2px;
+  color: var(--accent3);
+  text-shadow: 0 0 12px rgba(255, 204, 0, 0.4);
+}
+
+.rank-status.dim { color: rgba(255, 255, 255, 0.3); text-shadow: none; }
+
+#nickInput {
+  background: rgba(0, 255, 204, 0.06);
+  border: 1px solid rgba(0, 255, 204, 0.35);
+  color: var(--accent);
+  font-family: 'Space Mono', monospace;
+  font-size: 12px;
+  letter-spacing: 1px;
+  padding: 8px 10px;
+  width: 140px;
+  outline: none;
+  text-transform: none;
+}
+
+#nickInput.bad { border-color: var(--accent2); }
+
+.rank-btn {
+  font-size: 10px;
+  padding: 8px 14px;
+  margin-top: 0;
+}
+
+.lb-list {
+  width: min(300px, 84%);
+  margin: 6px 0 12px;
+  font-family: 'Space Mono', monospace;
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.75);
+}
+
+.lb-row {
+  display: grid;
+  grid-template-columns: 34px 1fr auto 48px;
+  gap: 8px;
+  padding: 5px 4px;
+  border-bottom: 1px solid rgba(0, 255, 204, 0.1);
+}
+
+.lb-row:first-child .lb-nick, .lb-row:first-child .lb-score { color: var(--accent3); }
+.lb-pos { color: rgba(0, 255, 204, 0.6); }
+.lb-score { text-align: right; }
+.lb-stars { text-align: right; font-size: 10px; }
+
 /* ==========================================================================
    RESPONSIVE — Landscape & Tiny Screens
    ========================================================================== */

@@ -12,7 +12,7 @@
  */
 
 import { Vec2 } from './core/Vec2.js';
-import { CANVAS_W, CANVAS_H, BUBBLE_R, COLORS, SHOOT_SPEED } from './constants.js';
+import { CANVAS_W, CANVAS_H, BUBBLE_R, COLORS, SHOOT_SPEED, BOMB_RADIUS } from './constants.js';
 import { WORLDS } from './themes.js';
 import { BubbleGrid } from './systems/BubbleGrid.js';
 import { ParticleSystem } from './systems/ParticleSystem.js';
@@ -23,6 +23,7 @@ import { Shooter } from './entities/Shooter.js';
 import { Projectile } from './entities/Projectile.js';
 import { setThemeEmojis, setThemeSprites, setHintColorIdx, updateHintTime } from './rendering/BubbleRenderer.js';
 import { setStarFieldTheme } from './rendering/StarField.js';
+import * as Leaderboard from './systems/Leaderboard.js';
 
 export class Game {
   constructor(canvas) {
@@ -226,9 +227,12 @@ export class Game {
     html += `<div class="world-banner locked" style="left:${JW / 2}px;top:${soon.y - 46}px">MORE WORLDS SOON</div>`;
 
     html += `</div>`; // .map-journey
-    html += `<div class="map-scorebar">⭐ ${this.progress.totalStars} Stars · Score: ${this.progress.totalScore.toLocaleString()}</div>`;
+    html += `<div class="map-scorebar">⭐ ${this.progress.totalStars} Stars · Score: ${this.progress.totalScore.toLocaleString()}` +
+      ` <button type="button" class="hud-btn lb-btn" id="btnTop10" title="Top 10">🏆</button></div>`;
     html += `</div>`;
     overlay.innerHTML = html;
+
+    document.getElementById('btnTop10')?.addEventListener('click', () => this._showLeaderboard());
 
     // Clique no nível: converte índice global em mundo+nível
     overlay.querySelectorAll('.map-node.unlocked, .map-node.completed').forEach(btn => {
@@ -312,33 +316,67 @@ export class Game {
       b, row, col,
       contactBubble ? { row: contactRow, col: contactCol } : null,
     );
-    const cluster = this.grid.findCluster(placed.row, placed.col);
+    const pb = this.grid.grid[placed.row][placed.col];
 
-    if (cluster.length >= 3) {
+    // RAINBOW: adota a cor do maior grupo vizinho antes de resolver o match
+    if (b.power === 'rainbow' && pb) {
+      let best = null;
+      for (const n of this.grid.getNeighbors(placed.row, placed.col)) {
+        if (n.bubble.popping || n.bubble === pb) continue;
+        const cl = this.grid.findCluster(n.row, n.col).length;
+        if (!best || cl > best.len) best = { len: cl, colorIdx: n.bubble.colorIdx, color: n.bubble.color };
+      }
+      if (best) {
+        pb.colorIdx = best.colorIdx;
+        pb.color = best.color;
+        this.floatTexts.push(new FloatText(pb.pos.x, pb.pos.y - 22, 'RAINBOW!', '#ffffff'));
+      }
+    }
+
+    // Quem estoura neste tiro: raio da bomba, ou cluster 3+ normal
+    const isBomb = b.power === 'bomb';
+    let popCells = [];
+    if (isBomb) {
+      const blast = BOMB_RADIUS * BUBBLE_R * 2;
+      for (let r = 0; r < this.grid.grid.length; r++) {
+        for (let c = 0; c < (this.grid.grid[r] || []).length; c++) {
+          const gb = this.grid.grid[r]?.[c];
+          if (!gb?.alive || gb.popping) continue;
+          if (gb.pos.distanceTo(pb.pos) <= blast) popCells.push({ row: r, col: c });
+        }
+      }
+    } else {
+      const cluster = this.grid.findCluster(placed.row, placed.col);
+      if (cluster.length >= 3) popCells = cluster;
+    }
+
+    if (popCells.length) {
       this.combo++;
       if (this.combo > this.maxCombo) this.maxCombo = this.combo;
-      if (cluster.length >= 5 || this.combo >= 3) {
-        this.shake = Math.min(8, cluster.length + this.combo);
+      if (popCells.length >= 5 || this.combo >= 3 || isBomb) {
+        this.shake = Math.min(isBomb ? 12 : 8, popCells.length + this.combo + (isBomb ? 4 : 0));
       }
-      const points = cluster.length * 100 * this.combo;
+      const points = popCells.length * 100 * this.combo;
       this.score += points;
 
-      this.sound.playPop(cluster.length);
+      this.sound.playPop(popCells.length);
+      if (isBomb) this.sound.playDrop();
       if (this.combo > 1) this.sound.playCombo();
 
-      for (const { row: r, col: c } of cluster) {
+      for (const { row: r, col: c } of popCells) {
         const gb = this.grid.grid[r]?.[c];
         if (gb) {
           gb.popping = true; gb.popProgress = 0;
-          this.particles.emit(gb.pos.x, gb.pos.y, gb.color, 14);
+          this.particles.emit(gb.pos.x, gb.pos.y, isBomb ? '#ff6600' : gb.color, isBomb ? 18 : 14);
         }
       }
 
-      const cx = cluster.reduce((s, n) => s + (this.grid.grid[n.row]?.[n.col]?.pos.x || 0), 0) / cluster.length;
-      const cy = cluster.reduce((s, n) => s + (this.grid.grid[n.row]?.[n.col]?.pos.y || 0), 0) / cluster.length;
-      this.floatTexts.push(new FloatText(cx, cy, `+${points}`, COLORS[b.colorIdx]));
+      const cx = popCells.reduce((s, n) => s + (this.grid.grid[n.row]?.[n.col]?.pos.x || 0), 0) / popCells.length;
+      const cy = popCells.reduce((s, n) => s + (this.grid.grid[n.row]?.[n.col]?.pos.y || 0), 0) / popCells.length;
+      this.floatTexts.push(new FloatText(cx, cy, `+${points}`, isBomb ? '#ff6600' : COLORS[pb?.colorIdx] || '#ffffff'));
+      if (isBomb) this.floatTexts.push(new FloatText(cx, cy - 25, 'BOOM!', '#ff6600'));
       if (this.combo > 1) {
-        this.floatTexts.push(new FloatText(cx, cy - 25, `x${this.combo} COMBO!`, '#ffcc00'));
+        this.floatTexts.push(new FloatText(cx, cy - (isBomb ? 45 : 25), `x${this.combo} COMBO!`, '#ffcc00'));
       }
 
       setTimeout(() => {
@@ -500,6 +538,7 @@ export class Game {
       html += `<button type="button" class="btn" id="btnRetry">\u21BB Retry</button>`;
     }
     html += `<button type="button" class="btn mute-btn" id="btnMute">${this.sound.muted ? '\uD83D\uDD07' : '\uD83D\uDD0A'} Sound</button>`;
+    html += `<div class="rank-box" id="rankBox"></div>`;
     html += `</div>`;
 
     overlay.innerHTML = html;
@@ -518,6 +557,58 @@ export class Game {
       const muted = this.sound.toggleMute();
       e.target.textContent = (muted ? '\uD83D\uDD07' : '\uD83D\uDD0A') + ' Sound';
     });
+
+    this._initRankBox();
+  }
+
+  /** Caixa de ranking nas telas de resultado: pede nick 1x, depois auto-envia. */
+  _initRankBox() {
+    const box = document.getElementById('rankBox');
+    if (!box) return;
+    const total = this.progress.totalScore;
+    if (!total) { box.remove(); return; }
+    const nick = Leaderboard.getNick();
+    if (nick) {
+      box.innerHTML = `<span class="rank-status dim">enviando score...</span>`;
+      Leaderboard.submitScore(total, this.progress.totalStars).then((r) => {
+        const el = document.getElementById('rankBox');
+        if (!el) return;
+        el.innerHTML = r?.ok
+          ? `<span class="rank-status">\uD83C\uDFC6 ${nick} \u00B7 GLOBAL RANK #${r.rank}</span>`
+          : `<span class="rank-status dim">ranking offline</span>`;
+      });
+    } else {
+      box.innerHTML = `<input id="nickInput" maxlength="14" placeholder="NICK (3-14)" autocomplete="off">` +
+        `<button type="button" class="btn rank-btn" id="btnNick">RANK ME</button>`;
+      document.getElementById('btnNick').addEventListener('click', () => {
+        const v = document.getElementById('nickInput').value.trim();
+        if (!Leaderboard.setNick(v)) {
+          document.getElementById('nickInput').classList.add('bad');
+          return;
+        }
+        this._initRankBox();
+      });
+    }
+  }
+
+  /** Painel TOP 10 global (aberto pelo trof\u00E9u do mapa). */
+  _showLeaderboard() {
+    const overlay = document.getElementById('overlay');
+    overlay.classList.remove('map-mode');
+    overlay.innerHTML = `<div class="results-screen">` +
+      `<div class="overlay-title" style="font-size:26px">\uD83C\uDFC6 TOP 10</div>` +
+      `<div class="lb-list" id="lbList">carregando...</div>` +
+      `<button type="button" class="btn" id="btnLbBack">\u25C0 Back</button></div>`;
+    document.getElementById('btnLbBack').addEventListener('click', () => this.showMap());
+    Leaderboard.fetchTop(10).then((top) => {
+      const el = document.getElementById('lbList');
+      if (!el) return;
+      if (!top || !top.length) { el.textContent = 'sem scores ainda'; return; }
+      el.innerHTML = top.map((r, i) =>
+        `<div class="lb-row"><span class="lb-pos">#${i + 1}</span><span class="lb-nick">${r.nick}</span>` +
+        `<span class="lb-score">${(r.score || 0).toLocaleString()}</span><span class="lb-stars">\u2B50${r.wave || 0}</span></div>`,
+      ).join('');
+    });
   }
 
   _updateHUD() {
@@ -525,6 +616,40 @@ export class Game {
     document.getElementById('levelDisplay').textContent = `${this.currentWorld + 1}-${this.currentLevel + 1}`;
     document.getElementById('shotsDisplay').textContent = this.shots;
     document.getElementById('comboDisplay').textContent = this.combo;
+  }
+
+  /**
+   * Simula a trajetória do tiro atual (com ricochetes) e devolve o centro
+   * da célula onde ele vai assentar. Mesma física do _checkCollision.
+   */
+  _previewLanding() {
+    if (!this.shooter.currentBubble) return null;
+    let x = this.shooter.pos.x, y = this.shooter.pos.y;
+    let dx = Math.cos(this.shooter.angle), dy = Math.sin(this.shooter.angle);
+    for (let i = 0; i < 400; i++) {
+      x += dx * 6; y += dy * 6;
+      if (x - BUBBLE_R < 0) { x = BUBBLE_R; dx = Math.abs(dx); }
+      if (x + BUBBLE_R > CANVAS_W) { x = CANVAS_W - BUBBLE_R; dx = -Math.abs(dx); }
+      for (let r = 0; r < this.grid.grid.length; r++) {
+        for (let c = 0; c < (this.grid.grid[r] || []).length; c++) {
+          const gb = this.grid.grid[r]?.[c];
+          if (!gb?.alive || gb.popping) continue;
+          if (Math.abs(gb.pos.y - y) > BUBBLE_R * 2.2) continue;
+          const ddx = gb.pos.x - x, ddy = gb.pos.y - y;
+          if (ddx * ddx + ddy * ddy < (BUBBLE_R * 1.9) ** 2) {
+            const spot = this.grid._freeCellAdjacentTo(r, c, { x, y }) ||
+                         this.grid._nearestFreeCell(this.grid.worldToGrid(x, y).row, this.grid.worldToGrid(x, y).col, { x, y });
+            return this.grid.gridToWorld(spot.row, spot.col);
+          }
+        }
+      }
+      if (y <= 44) {
+        const wg = this.grid.worldToGrid(x, 40);
+        const spot = this.grid._nearestFreeCell(0, wg.col, { x, y: 40 });
+        return this.grid.gridToWorld(spot.row, spot.col);
+      }
+    }
+    return null;
   }
 
   /** Pixel art icons do mundo (lazy, cacheado). */
@@ -704,6 +829,29 @@ export class Game {
     // Game layers
     this.grid.draw(ctx);
     this.particles.draw(ctx);
+
+    // Fantasminha de pouso: onde o tiro atual vai assentar
+    if (this.state === 'PLAYING' && !this.projectile.active && this.shooter.currentBubble) {
+      const lp = this._previewLanding();
+      if (lp) {
+        const cur = this.shooter.currentBubble;
+        const previewColor = cur.power ? '#ffffff' : cur.color;
+        ctx.save();
+        ctx.globalAlpha = 0.4 + Math.sin(this.gameTime * 4) * 0.15;
+        ctx.strokeStyle = previewColor;
+        ctx.lineWidth = 2;
+        ctx.setLineDash([5, 5]);
+        ctx.beginPath();
+        ctx.arc(lp.x, lp.y, BUBBLE_R - 2, 0, Math.PI * 2);
+        ctx.stroke();
+        ctx.setLineDash([]);
+        ctx.globalAlpha = 0.12;
+        ctx.fillStyle = previewColor;
+        ctx.fill();
+        ctx.restore();
+      }
+    }
+
     this.projectile.draw(ctx);
     this.shooter.draw(ctx);
     for (const ft of this.floatTexts) ft.draw(ctx);

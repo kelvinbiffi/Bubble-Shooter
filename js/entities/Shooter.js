@@ -37,7 +37,7 @@
  */
 
 import { Vec2 } from '../core/Vec2.js';
-import { CANVAS_W, CANVAS_H, BUBBLE_R, COLORS } from '../constants.js';
+import { CANVAS_W, CANVAS_H, BUBBLE_R, COLORS, BOMB_CHANCE, RAINBOW_CHANCE } from '../constants.js';
 import { drawBubble } from '../rendering/BubbleRenderer.js';
 
 export class Shooter {
@@ -70,6 +70,12 @@ export class Shooter {
     b.color    = COLORS[b.colorIdx];
     b.pos      = this.pos.clone();
     b.alive    = true;
+
+    // Power-ups: chance pequena do tiro vir especial
+    const roll = Math.random();
+    if (roll < BOMB_CHANCE) b.power = 'bomb';
+    else if (roll < BOMB_CHANCE + RAINBOW_CHANCE) b.power = 'rainbow';
+
     return b;
   }
 

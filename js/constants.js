@@ -24,6 +24,11 @@ export const SHOOT_SPEED = 600;     // Projectile velocity in px/SECOND (frame-r
 // ---- Game Rules ----
 export const MIN_CLUSTER = 3;       // Minimum connected same-color bubbles to pop
 
+// ---- Power-ups ----
+export const BOMB_CHANCE    = 0.05; // chance do tiro vir bomba
+export const RAINBOW_CHANCE = 0.05; // chance do tiro vir arco-iris
+export const BOMB_RADIUS    = 2.15; // raio da explosao em diametros de bolha
+
 // ---- Bubble Palette ----
 export const COLORS = [
   '#ff3366',  // Red

@@ -68,6 +68,7 @@ export class Bubble {
     this.popProgress = 0;
     this.alpha       = 1;
     this.scale       = 1;
+    this.power       = null; // null | 'bomb' | 'rainbow'
     this.glowPulse   = Math.random() * Math.PI * 2; // Random phase so bubbles don't pulse in sync
   }
 }

@@ -49,6 +49,53 @@ export function drawBubble(ctx, b) {
   ctx.save();
   ctx.globalAlpha = alpha;
 
+  // ---- Power-ups: visual próprio ----
+  if (b.power === 'bomb') {
+    ctx.shadowBlur  = 16 + Math.sin(_hintTime * 8) * 6;
+    ctx.shadowColor = '#ff6600';
+    const grad = ctx.createRadialGradient(x - r * 0.3, y - r * 0.3, r * 0.1, x, y, r);
+    grad.addColorStop(0, '#555');
+    grad.addColorStop(0.5, '#1a1a1a');
+    grad.addColorStop(1, '#000');
+    ctx.beginPath();
+    ctx.arc(x, y, r, 0, Math.PI * 2);
+    ctx.fillStyle = grad;
+    ctx.fill();
+    ctx.strokeStyle = `rgba(255,102,0,${0.5 + Math.sin(_hintTime * 8) * 0.3})`;
+    ctx.lineWidth = 2;
+    ctx.stroke();
+    ctx.shadowBlur = 0;
+    ctx.font = `${Math.round(r * 1.1)}px serif`;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText('💣', x, y + 1);
+    ctx.restore();
+    return;
+  }
+  if (b.power === 'rainbow') {
+    const hue = (_hintTime * 120) % 360;
+    ctx.shadowBlur  = 14;
+    ctx.shadowColor = `hsl(${hue}, 100%, 60%)`;
+    const grad = ctx.createRadialGradient(x - r * 0.3, y - r * 0.3, r * 0.1, x, y, r);
+    grad.addColorStop(0, `hsl(${hue}, 100%, 80%)`);
+    grad.addColorStop(0.5, `hsl(${(hue + 60) % 360}, 100%, 60%)`);
+    grad.addColorStop(1, `hsl(${(hue + 120) % 360}, 90%, 40%)`);
+    ctx.beginPath();
+    ctx.arc(x, y, r, 0, Math.PI * 2);
+    ctx.fillStyle = grad;
+    ctx.fill();
+    ctx.strokeStyle = 'rgba(255,255,255,0.6)';
+    ctx.lineWidth = 1.5;
+    ctx.stroke();
+    ctx.shadowBlur = 0;
+    ctx.font = `${Math.round(r * 0.9)}px serif`;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText('🌈', x, y + 1);
+    ctx.restore();
+    return;
+  }
+
   // ---- Hint pulse: matching color ring ----
   const isHinted = _hintColorIdx >= 0 && b.colorIdx === _hintColorIdx && !b.popping;
   if (isHinted) {
