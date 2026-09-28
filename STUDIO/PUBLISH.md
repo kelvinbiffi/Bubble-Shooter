@@ -1,6 +1,7 @@
 # PUBLISH — BUBBLE BLASTER · checklist de publicação itch.io
 
-## Estado: AGUARDANDO OK DO KELVIN (trava da conta itch, memória itch-presenca-k3)
+## Estado: PUBLICADO 28/09/2026 · https://k3-games-studio.itch.io/bubble-blaster (id 5070331)
+OK do Kelvin dado 28/09 ("faz pra nós tudo"). Ranking deployado, GitHub pushado, página pública com tema neon. Pendente: devlog (trava de posts da conta) e divulgação.
 
 ## O pacote
 - Zip web: `C:\K3Games\bubble-shooter\bubble-blaster-web.zip` (10.3 MB, gerado com 7za, testado do dist)

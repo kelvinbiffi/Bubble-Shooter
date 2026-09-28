@@ -1,0 +1,113 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@700;900&family=Space+Mono&display=swap" rel="stylesheet">
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { background: #222; }
+  #cover {
+    position: relative;
+    width: 630px; height: 500px;
+    background: radial-gradient(ellipse at 50% 30%, #10102e 0%, #050510 70%);
+    overflow: hidden;
+    font-family: 'Orbitron', monospace;
+  }
+  .star { position: absolute; background: #fff; border-radius: 50%; }
+  .bubble {
+    position: absolute; border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .bubble img { image-rendering: pixelated; }
+  .b-red    { background: radial-gradient(circle at 35% 35%, #ff8fae, #ff3366 55%, #7a0f2b); box-shadow: 0 0 30px rgba(255,51,102,0.75); }
+  .b-blue   { background: radial-gradient(circle at 35% 35%, #9ae8ff, #00ccff 55%, #005e78); box-shadow: 0 0 30px rgba(0,204,255,0.75); }
+  .b-yellow { background: radial-gradient(circle at 35% 35%, #ffe9a0, #ffcc00 55%, #7a6000); box-shadow: 0 0 30px rgba(255,204,0,0.75); }
+  .b-green  { background: radial-gradient(circle at 35% 35%, #a8ffd9, #00ffaa 55%, #00704b); box-shadow: 0 0 30px rgba(0,255,170,0.75); }
+  .b-purple { background: radial-gradient(circle at 35% 35%, #e3aaff, #cc44ff 55%, #5c1a78); box-shadow: 0 0 30px rgba(204,68,255,0.75); }
+  .b-bomb   { background: radial-gradient(circle at 35% 35%, #555, #1a1a1a 55%, #000); box-shadow: 0 0 26px rgba(255,102,0,0.9); border: 2px solid rgba(255,102,0,0.8); font-size: 34px; }
+  .title {
+    position: absolute; left: 0; right: 0; top: 178px;
+    text-align: center; font-weight: 900; font-size: 56px; letter-spacing: 4px;
+    color: #00ffcc;
+    text-shadow: 0 0 18px rgba(0,255,204,0.9), 0 0 50px rgba(0,255,204,0.45);
+  }
+  .title .b2 { display: block; font-size: 62px; color: #fff;
+    text-shadow: 0 0 18px rgba(255,51,153,0.9), 0 0 50px rgba(255,51,153,0.5); }
+  .tag {
+    position: absolute; left: 0; right: 0; top: 320px; text-align: center;
+    font-family: 'Space Mono', monospace; font-size: 15px; letter-spacing: 5px;
+    color: rgba(255,255,255,0.75);
+  }
+  .sub {
+    position: absolute; left: 0; right: 0; top: 352px; text-align: center;
+    font-family: 'Space Mono', monospace; font-size: 12px; letter-spacing: 3px;
+    color: rgba(0,255,204,0.55);
+  }
+  .studio {
+    position: absolute; left: 0; right: 0; bottom: 16px; text-align: center;
+    font-size: 11px; letter-spacing: 4px; color: rgba(255,255,255,0.35);
+  }
+  .danger { position: absolute; left: 40px; right: 40px; top: 455px; border-top: 2px dashed rgba(255,51,100,0.5); }
+</style>
+</head>
+<body>
+<div id="cover">
+  <div class="title">BUBBLE<span class="b2">BLASTER</span></div>
+  <div class="tag">NEON BUBBLE POPPING ARCADE</div>
+  <div class="sub">3 WORLDS · 24 LEVELS · POWER-UPS</div>
+  <div class="danger"></div>
+  <div class="studio">A K3 GAMES STUDIO GAME</div>
+</div>
+<script>
+  const cover = document.getElementById('cover');
+  // estrelas
+  for (let i = 0; i < 90; i++) {
+    const s = document.createElement('div');
+    s.className = 'star';
+    const size = Math.random() * 2.2 + 0.6;
+    s.style.width = s.style.height = size + 'px';
+    s.style.left = Math.random() * 630 + 'px';
+    s.style.top = Math.random() * 500 + 'px';
+    s.style.opacity = 0.15 + Math.random() * 0.6;
+    cover.appendChild(s);
+  }
+  // bolhas com os sprites reais (arco no topo + soltas)
+  const defs = [
+    // arco superior
+    { x: -18, y: -24, r: 46, cls: 'b-yellow', spr: 'world0-slot2.png' },
+    { x: 60,  y: -30, r: 44, cls: 'b-blue',   spr: 'world0-slot1.png' },
+    { x: 138, y: -20, r: 46, cls: 'b-red',    spr: 'world0-slot0.png' },
+    { x: 216, y: -30, r: 44, cls: 'b-green',  spr: 'world0-slot3.png' },
+    { x: 294, y: -18, r: 46, cls: 'b-purple', spr: 'world1-slot0.png' },
+    { x: 372, y: -30, r: 44, cls: 'b-red',    spr: 'world1-slot1.png' },
+    { x: 450, y: -22, r: 46, cls: 'b-blue',   spr: 'world2-slot0.png' },
+    { x: 528, y: -30, r: 44, cls: 'b-yellow', spr: 'world2-slot1.png' },
+    { x: 30,  y: 46,  r: 40, cls: 'b-green',  spr: 'world2-slot3.png' },
+    { x: 180, y: 52,  r: 38, cls: 'b-red',    spr: 'world0-slot4.png' },
+    { x: 420, y: 50,  r: 40, cls: 'b-purple', spr: 'world1-slot4.png' },
+    { x: 545, y: 48,  r: 38, cls: 'b-blue',   spr: 'world2-slot4.png' },
+    // soltas embaixo (a caminho do canhão)
+    { x: 60,  y: 396, r: 34, cls: 'b-red',    spr: 'world0-slot0.png' },
+    { x: 505, y: 392, r: 36, cls: 'b-blue',   spr: 'world2-slot0.png' },
+    { x: 286, y: 402, r: 30, cls: 'b-bomb',   spr: null },
+  ];
+  for (const d of defs) {
+    const b = document.createElement('div');
+    b.className = 'bubble ' + d.cls;
+    b.style.left = d.x + 'px';
+    b.style.top = d.y + 'px';
+    b.style.width = b.style.height = (d.r * 2) + 'px';
+    if (d.spr) {
+      const img = document.createElement('img');
+      img.src = '../../public/assets/sprites/' + d.spr;
+      img.style.width = img.style.height = Math.round(d.r * 1.3) + 'px';
+      b.appendChild(img);
+    } else {
+      b.textContent = '💣';
+    }
+    cover.appendChild(b);
+  }
+</script>
+</body>
+</html>

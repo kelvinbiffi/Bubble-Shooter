@@ -42,6 +42,8 @@ Missão desta produção: modernizar com os MCPs do estúdio (arte real no lugar
 - T-01 (P0, pm) Kickoff: clone, install, dev server na 5199, smoke test Playwright OK (tiro, match +300, combo, HUD). Screenshot: STUDIO/screenshots/2026-07-30-original-gameplay.png. Observações pro QA/UX: fundo marrom estranho fora do canvas, bolha atual não visível no canhão no screenshot.
 
 ## Decisões
+- 03/08/2026: Iteração 5 (pedido "melhorar muito"): power-ups bomba/arco-íris (5% cada), preview de pouso, drag-aim mobile, ranking global client-side. Slug bubble-blaster PENDENTE de deploy na k3-api (push bloqueado sem OK explícito do Kelvin, mudança pronta em C:\K3Games\k3-api\server.js).
+- 03/08/2026: Ceiling descent (fileira nova a cada N tiros) DESCARTADO desta versão: flip de paridade do grid hex + rebalance completo, risco alto pré-launch. Fica pro pós-launch se o UX pedir pressão extra.
 - 30/07/2026: MECÂNICA smart-colors adotada (sorteio do tiro só entre cores vivas no grid, padrão do gênero). Sim provou: nível 3 cores sai de 6% pra 58-66% de win com bot decente. Sem ela o jogo é matematicamente injusto.
 - 30/07/2026: 6 cores REMOVIDA da curva (injogável no sim mesmo com 42 tiros); 5 cores só nos níveis finais com 50+ tiros.
 - 30/07/2026: starTint dos mundos reduzido de 0.4 pra 0.07 de alpha (fundo marrom lamacento virava a identidade neon; agora é só um matiz).
